@@ -2,8 +2,6 @@
 
 Yet another finite state machine for Dart.
 
-[![License: MIT][license_badge]][https://github.com/misha/dart_yafsm/blob/master/LICENSE]
-
 ## Features
 
 - Easily and quickly define states and transitions.
@@ -110,13 +108,13 @@ m.start();
 print(isOn()); // -> true
 ```
 
+I have found this queuing functionality to lead to more natural reasoning about machine behavior.
+
 If you wish to skip any pending events, there's parameter to do so:
 
 ```dart
 m.start(clear: true);
 ```
-
-I have found this queuing functionality to lead to more natural reasoning about machine behavior.
 
 ### Nested Machines
 

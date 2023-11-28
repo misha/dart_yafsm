@@ -232,6 +232,7 @@ sealed class MachineState<D> {
   }
 }
 
+/// A parameter-less machine state.
 class SimpleMachineState extends MachineState<void> {
   SimpleMachineState._(super.name, super.parent, {super.internal});
 
@@ -250,6 +251,7 @@ class SimpleMachineState extends MachineState<void> {
   }
 }
 
+/// A parameterized machine state.
 class ParameterizedMachineState<D> extends MachineState<D> {
   ParameterizedMachineState._(super.name, super.parent, {super.internal});
 
