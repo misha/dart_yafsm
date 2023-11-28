@@ -13,9 +13,17 @@ Yet another finite state machine for Dart.
 - Enables a class-based definition style with the `late` keyword.
 - Zero dependencies - it's just one Dart file.
 
+## Installation
+
+Add the package to your Dart or Flutter project:
+
+```bash
+dart pub add yafsm
+```
+
 ## Basic Usage
 
-There are three steps to setting up your state machine:
+There are three steps to setting up a state machine:
 
 ```dart
 // 1. Declare the machine, states, and transitions.
@@ -31,7 +39,7 @@ m.initialize(isOff);
 // 3. Start the machine.
 m.start();
 
-// Use states and transitions to manipulate the machine.
+// Call states and transitions to manipulate the machine.
 if (isOff()) {
   turnOn();
 }
