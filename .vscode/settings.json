@@ -1,0 +1,16 @@
+{
+  "editor.indentSize": 2,
+  "editor.detectIndentation": false,
+  "files.insertFinalNewline": true,
+  "dart.lineLength": 120,
+  "cSpell.enabled": true,
+  "cSpell.words": [
+    "pstate",
+    "ptransition",
+    "submachines",
+    "yafsm"
+  ],
+  "cSpell.ignorePaths": [
+    "LICENSE"
+  ]
+}

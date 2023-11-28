@@ -1,8 +1,4 @@
-/// Support for doing something awesome.
-///
-/// More dartdocs go here.
+/// Yet another Dart FSM implementation.
 library;
 
-export 'src/yafsm_base.dart';
-
-// TODO: Export any libraries intended for clients of this package.
+export 'src/machine.dart';
