@@ -287,25 +287,6 @@ sealed class MachineTransition<D> {
   String toString() {
     return '${_machine.name}.$name';
   }
-}
-
-/// A transition to a parameter-less state.
-class SimpleMachineTransition extends MachineTransition<void> {
-  SimpleMachineTransition._(super.name, super.from, super.to, super.machine);
-
-  /// Attempt to perform this transition.
-  ///
-  /// If the machine has not started yet, the transition will be enqueued.
-  ///
-  /// Returns true if triggered successfully, false otherwise.
-  bool call([void _]) {
-    return _machine._trigger(this, null);
-  }
-}
-
-/// A transition to a parameterized state.
-class ParameterizedMachineTransition<D> extends MachineTransition<D> {
-  ParameterizedMachineTransition._(super.name, super.from, super.to, super.machine);
 
   /// Attempt to perform this transition with the given data.
   ///
@@ -315,4 +296,19 @@ class ParameterizedMachineTransition<D> extends MachineTransition<D> {
   bool call(D data) {
     return _machine._trigger(this, data);
   }
+}
+
+/// A transition to a parameter-less state.
+class SimpleMachineTransition extends MachineTransition<void> {
+  SimpleMachineTransition._(super.name, super.from, super.to, super.machine);
+
+  @override
+  bool call([void data]) {
+    return _machine._trigger(this, null);
+  }
+}
+
+/// A transition to a parameterized state.
+class ParameterizedMachineTransition<D> extends MachineTransition<D> {
+  ParameterizedMachineTransition._(super.name, super.from, super.to, super.machine);
 }
