@@ -172,3 +172,9 @@ This style has several advantages:
 - The list of states and transitions are visually co-located, greatly improving legibility.
 - States and transitions may be accessed directly by a consumer, without the need to pass them or rename them in any way.
 - The state may be tested (almost) entirely separately from your application. I suppose the type parameters are still implementation-dependent.
+
+## Motivation
+
+I needed a nestable state machine library for my current project. There are several FSM libraries already out there, but the most well-maintained ones do not allow you to nest machines. As a result, I decided to implement a simple yet correct nestable FSM.
+
+Additionally, I have attempted to keep the source code simple and concise. If you need more features or control, I can recommend copying the sole source file `machine.dart` into your project instead.
