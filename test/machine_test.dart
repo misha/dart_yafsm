@@ -63,17 +63,13 @@ void main() {
     var onCount = 0;
     var offCount = 0;
 
-    isOn.on(
-      enter: () {
-        onCount += 1;
-      },
-    );
+    isOn.enter$.forEach((_) {
+      onCount += 1;
+    });
 
-    isOff.on(
-      enter: () {
-        offCount += 1;
-      },
-    );
+    isOff.enter$.forEach((_) {
+      offCount += 1;
+    });
 
     m.start();
 
@@ -100,17 +96,13 @@ void main() {
     String? lastOnReason;
     String? lastOffReason;
 
-    isOn.on(
-      enter: (data) {
-        lastOnReason = data.reason;
-      },
-    );
+    isOn.enter$.forEach((data) {
+      lastOnReason = data.reason;
+    });
 
-    isOff.on(
-      enter: (data) {
-        lastOffReason = data.reason;
-      },
-    );
+    isOff.enter$.forEach((data) {
+      lastOffReason = data.reason;
+    });
 
     turnOn((reason: 'test 1'));
     expect(lastOnReason, 'test 1');

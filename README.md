@@ -57,20 +57,19 @@ m.current$.forEach((state) {
 });
 ```
 
-2. Set up enter/exit listeners for particular states using the `on` function.
+2. Listen to specific machine states, accessible via `enter$` and `exit$`:
 
 ```dart
-isOn.on(
-  enter: () {
-    print('turning on');
-  },
-  exit: () {
-    print('turning off');
-  },
-);
+isOn.enter$.forEach((_) {
+  print('turning on');
+});
+
+isOn.exit$.forEach((_) {
+  print('turning off');
+});
 ```
 
-I recommend sticking to `on` for integrating the machine with your application. Additionally, `on` is the only way to receive parameterized state data in a type-safe way.
+I recommend sticking to `enter$` and `exit$` for integrating the machine with your application. Additionally, the state's streams are the only way to receive parameterized state data in a type-safe way.
 
 However, the `current$` stream may be useful for debugging or more high-level behavior.
 

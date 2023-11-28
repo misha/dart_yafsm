@@ -2,7 +2,7 @@ import 'dart:async';
 
 /// Matches any machine state.
 final Set<MachineState> any = Set.unmodifiable({
-  SimpleMachineState._(
+  MachineState._(
     '__any__',
     null,
     internal: true,
@@ -10,7 +10,7 @@ final Set<MachineState> any = Set.unmodifiable({
 });
 
 /// The terminal machine state.
-final MachineState<void> _none = SimpleMachineState._(
+final MachineState<void> _none = MachineState._(
   '__none__',
   null,
   internal: true,
@@ -57,7 +57,7 @@ class Machine {
   /// The machine must first [start] to see that state.
   void initialize<D>(MachineState<D> state, [D? data]) {
     assert(_states.contains(state), 'Initial state must be a known state.');
-    assert(state is SimpleMachineState || data is D, 'Parameterized states initial states require data.');
+    assert(data is D, 'Invalid data for initial state.');
     _initial = state;
     _initialData = data;
   }
@@ -65,8 +65,8 @@ class Machine {
   /// Makes a new simple (void) state for this machine.
   ///
   /// Simple state transitions are created with [transition].
-  SimpleMachineState state(String name) {
-    final state = SimpleMachineState._(name, this);
+  MachineState<void> state(String name) {
+    final state = MachineState<void>._(name, this);
     _states.add(state);
     return state;
   }
@@ -74,8 +74,8 @@ class Machine {
   /// Makes a new parameterized state for this machine.
   ///
   /// Parameterized state transitions are created with [ptransition].
-  ParameterizedMachineState<D> pstate<D>(String name) {
-    final state = ParameterizedMachineState<D>._(name, this);
+  MachineState<D> pstate<D>(String name) {
+    final state = MachineState<D>._(name, this);
     _states.add(state);
     return state;
   }
@@ -84,7 +84,7 @@ class Machine {
   SimpleMachineTransition transition(
     String name,
     Set<MachineState> from,
-    SimpleMachineState to,
+    MachineState<void> to,
   ) {
     return SimpleMachineTransition._(name, from, to, this);
   }
@@ -93,7 +93,7 @@ class Machine {
   ParameterizedMachineTransition<D> ptransition<D>(
     String name,
     Set<MachineState> from,
-    ParameterizedMachineState<D> to,
+    MachineState<D> to,
   ) {
     return ParameterizedMachineTransition._(name, from, to, this);
   }
@@ -165,9 +165,15 @@ class Machine {
 }
 
 /// A single machine state, which may contain nested state machines.
-sealed class MachineState<D> {
+class MachineState<D> {
   /// The name of this state.
   final String name;
+
+  /// Stream of enter events, with their accompanying data.
+  Stream<D> get enter$ => _enterController.stream;
+
+  /// Stream of exit events.
+  Stream<void> get exit$ => _exitController.stream;
 
   /// The machine that owns this state.
   final Machine? _machine;
@@ -181,7 +187,7 @@ sealed class MachineState<D> {
   /// Controller for exit events.
   final _exitController = StreamController<void>.broadcast(sync: true);
 
-  MachineState(
+  MachineState._(
     this.name,
     this._machine, {
     bool internal = false,
@@ -229,44 +235,6 @@ sealed class MachineState<D> {
     }
 
     _exitController.add(null);
-  }
-}
-
-/// A parameter-less machine state.
-class SimpleMachineState extends MachineState<void> {
-  SimpleMachineState._(super.name, super.parent, {super.internal});
-
-  /// Listens to events that occur on this state.
-  void on({
-    void Function()? enter,
-    void Function()? exit,
-  }) {
-    if (enter != null) {
-      _enterController.stream.forEach((_) => enter());
-    }
-
-    if (exit != null) {
-      _exitController.stream.forEach((_) => exit());
-    }
-  }
-}
-
-/// A parameterized machine state.
-class ParameterizedMachineState<D> extends MachineState<D> {
-  ParameterizedMachineState._(super.name, super.parent, {super.internal});
-
-  /// Listens to events that occur on this state.
-  void on({
-    void Function(D data)? enter,
-    void Function()? exit,
-  }) {
-    if (enter != null) {
-      _enterController.stream.forEach((data) => enter(data));
-    }
-
-    if (exit != null) {
-      _exitController.stream.forEach((_) => exit());
-    }
   }
 }
 
