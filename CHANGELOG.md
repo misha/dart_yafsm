@@ -1,3 +1,7 @@
+## 1.0.2
+
+- Make machines and states listenable in the same way using streams.
+
 ## 1.0.1
 
 - Improve semantics around transition execution.
