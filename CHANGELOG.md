@@ -1,3 +1,8 @@
+## 1.0.3
+
+- It is no longer possible to use `pstate` without `ptransition` on accident.
+- Parameterized states store their data while active, accessible with the `data` getter.
+
 ## 1.0.2
 
 - Make machines and states listenable in the same way using streams.
