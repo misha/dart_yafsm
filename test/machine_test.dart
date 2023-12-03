@@ -111,4 +111,20 @@ void main() {
     turnOff(((reason: 'test 3')));
     expect(lastOffReason, 'test 3');
   });
+
+  test('parameterized state data', () {
+    final m = Machine('switch');
+    final isOn = m.pstate<({String reason})>('on');
+    final isOff = m.pstate<({String reason})>('off');
+    final turnOn = m.ptransition('turn on', {isOff}, isOn);
+
+    m.initialize(isOff, (reason: 'sleeping'));
+    m.start();
+
+    expect(isOff.data.reason, 'sleeping');
+    expect(() => isOn.data, throwsStateError);
+    expect(turnOn((reason: 'woke up')), true);
+    expect(isOn.data.reason, 'woke up');
+    expect(() => isOff.data, throwsStateError);
+  });
 }

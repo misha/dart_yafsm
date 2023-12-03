@@ -248,7 +248,10 @@ class ParameterizedMachineState<D> extends MachineState<D> {
   ParameterizedMachineState._(super.name, super.machine, {super.internal});
 
   D get data {
-    assert(call(), 'Cannot retrieve state data unless the state is active.');
+    if (!call()) {
+      throw StateError('Cannot retrieve state data unless the state is active.');
+    }
+
     return _data!;
   }
 
