@@ -2,7 +2,7 @@ import 'dart:async';
 
 /// Matches any machine state.
 final Set<MachineState> any = Set.unmodifiable({
-  MachineState._(
+  SimpleMachineState._(
     '__any__',
     null,
     internal: true,
@@ -10,7 +10,7 @@ final Set<MachineState> any = Set.unmodifiable({
 });
 
 /// The terminal machine state.
-final MachineState<void> _none = MachineState._(
+final MachineState<void> _none = SimpleMachineState._(
   '__none__',
   null,
   internal: true,
@@ -65,8 +65,8 @@ class Machine {
   /// Makes a new simple (void) state for this machine.
   ///
   /// Simple state transitions are created with [transition].
-  MachineState<void> state(String name) {
-    final state = MachineState<void>._(name, this);
+  SimpleMachineState state(String name) {
+    final state = SimpleMachineState._(name, this);
     _states.add(state);
     return state;
   }
@@ -74,8 +74,8 @@ class Machine {
   /// Makes a new parameterized state for this machine.
   ///
   /// Parameterized state transitions are created with [ptransition].
-  MachineState<D> pstate<D>(String name) {
-    final state = MachineState<D>._(name, this);
+  ParameterizedMachineState<D> pstate<D>(String name) {
+    final state = ParameterizedMachineState<D>._(name, this);
     _states.add(state);
     return state;
   }
@@ -84,7 +84,7 @@ class Machine {
   SimpleMachineTransition transition(
     String name,
     Set<MachineState> from,
-    MachineState<void> to,
+    SimpleMachineState to,
   ) {
     return SimpleMachineTransition._(name, from, to, this);
   }
@@ -93,7 +93,7 @@ class Machine {
   ParameterizedMachineTransition<D> ptransition<D>(
     String name,
     Set<MachineState> from,
-    MachineState<D> to,
+    ParameterizedMachineState<D> to,
   ) {
     return ParameterizedMachineTransition._(name, from, to, this);
   }
@@ -165,7 +165,7 @@ class Machine {
 }
 
 /// A single machine state, which may contain nested state machines.
-class MachineState<D> {
+sealed class MachineState<D> {
   /// The name of this state.
   final String name;
 
@@ -187,7 +187,7 @@ class MachineState<D> {
   /// Controller for exit events.
   final _exitController = StreamController<void>.broadcast(sync: true);
 
-  MachineState._(
+  MachineState(
     this.name,
     this._machine, {
     bool internal = false,
@@ -235,6 +235,35 @@ class MachineState<D> {
     }
 
     _exitController.add(null);
+  }
+}
+
+/// A machine state without parameters.
+class SimpleMachineState extends MachineState<void> {
+  SimpleMachineState._(super.name, super.machine, {super.internal});
+}
+
+/// A machine state with parameterized data.
+class ParameterizedMachineState<D> extends MachineState<D> {
+  ParameterizedMachineState._(super.name, super.machine, {super.internal});
+
+  D get data {
+    assert(call(), 'Cannot retrieve state data unless the state is active.');
+    return _data!;
+  }
+
+  D? _data;
+
+  @override
+  void _onEnter(D data) {
+    _data = data;
+    super._onEnter(data);
+  }
+
+  @override
+  void _onExit() {
+    super._onExit();
+    _data = null;
   }
 }
 
