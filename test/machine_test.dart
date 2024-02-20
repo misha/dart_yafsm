@@ -127,4 +127,40 @@ void main() {
     expect(isOn.data.reason, 'woke up');
     expect(() => isOff.data, throwsStateError);
   });
+
+  test('state guard', () {
+    final m = Machine('switch');
+    final isOn = m.state('on');
+    final isOff = m.state('off');
+    final turnOn = m.transition('turn on', {isOff}, isOn);
+    m.initialize(isOff);
+    m.start();
+
+    bool hasElectricity = false;
+    isOn.guard(() => hasElectricity);
+    expect(turnOn(), isFalse);
+    expect(isOn(), isFalse);
+
+    hasElectricity = true;
+    expect(turnOn(), isTrue);
+    expect(isOn(), isTrue);
+  });
+
+  test('transition guard', () {
+    final m = Machine('switch');
+    final isOn = m.state('on');
+    final isOff = m.state('off');
+    final turnOn = m.transition('turn on', {isOff}, isOn);
+    m.initialize(isOff);
+    m.start();
+
+    bool hasElectricity = false;
+    turnOn.guard(() => hasElectricity);
+    expect(turnOn(), isFalse);
+    expect(isOn(), isFalse);
+
+    hasElectricity = true;
+    expect(turnOn(), isTrue);
+    expect(isOn(), isTrue);
+  });
 }

@@ -88,6 +88,18 @@ turnOn((reason: 'scared of the dark'));
 
 The method names differ in order to provide a slightly different interface for each type of state.
 
+### Guards
+
+States and transitions may be guarded with arbitrary test functions.
+
+```dart
+turnOn.guard(() => hasElectricity);
+turnOn();
+print(isOn()); // -> false
+```
+
+Parameterized guards also have access to the proposed state data.
+
 ### Transition Queue
 
 There can be some time between when a machine starts, and when your code wants to start calling transitions. To account for this, machines will enqueue transition attempts and process them when `start` is initially called.

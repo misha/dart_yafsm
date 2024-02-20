@@ -143,17 +143,25 @@ class Machine {
   }
 
   bool _trigger(MachineTransition transition, dynamic data) {
+    // Store transitions that come in before the machine has started.
     if (!isRunning) {
       _pendingOperations.add((transition, data));
       return false;
     }
 
-    if (transition.from.contains(current) || transition.from == any) {
-      _transition(transition.to, data);
-      return true;
-    } else {
+    // Throw out transitions that cannot be performed given the current state.
+    if (!(transition.from.contains(current) || transition.from == any)) {
       return false;
     }
+
+    // Throw out the trigger if rejected by a transition or state guard.
+    if (transition._guards.any((guard) => !guard(data)) || //
+        transition.to._guards.any((guard) => !guard(data))) {
+      return false;
+    }
+
+    _transition(transition.to, data);
+    return true;
   }
 
   void _transition(MachineState next, dynamic data) {
@@ -163,6 +171,9 @@ class Machine {
     next._onEnter(data);
   }
 }
+
+typedef Guard<D> = bool Function(D data);
+typedef SimpleGuard = bool Function();
 
 /// A single machine state, which may contain nested state machines.
 sealed class MachineState<D> {
@@ -180,6 +191,9 @@ sealed class MachineState<D> {
 
   /// Any machines nested inside this state.
   final _submachines = <Machine>[];
+
+  /// Any guards for this state.
+  final _guards = <Guard>[];
 
   /// Controller for enter events.
   final _enterController = StreamController<D>.broadcast(sync: true);
@@ -241,11 +255,16 @@ sealed class MachineState<D> {
 /// A machine state without parameters.
 class SimpleMachineState extends MachineState<void> {
   SimpleMachineState._(super.name, super.machine, {super.internal});
+
+  /// Guards entry to this state using the given test.
+  void guard(SimpleGuard test) {
+    _guards.add((_) => test());
+  }
 }
 
 /// A machine state with parameterized data.
 class ParameterizedMachineState<D> extends MachineState<D> {
-  ParameterizedMachineState._(super.name, super.machine, {super.internal});
+  D? _data;
 
   D get data {
     if (!call()) {
@@ -255,7 +274,12 @@ class ParameterizedMachineState<D> extends MachineState<D> {
     return _data!;
   }
 
-  D? _data;
+  ParameterizedMachineState._(super.name, super.machine, {super.internal});
+
+  /// Guards entry to this state using the given test.
+  void guard(Guard<D> test) {
+    _guards.add((data) => test(data as D));
+  }
 
   @override
   void _onEnter(D data) {
@@ -278,6 +302,7 @@ sealed class MachineTransition<D> {
   final Set<MachineState> from;
   final MachineState<D> to;
   final Machine _machine;
+  final _guards = <Guard>[];
 
   MachineTransition(this.name, this.from, this.to, this._machine)
       : assert(from == any || _machine._states.containsAll(from), 'All "from" states must be known.'),
@@ -306,9 +331,19 @@ class SimpleMachineTransition extends MachineTransition<void> {
   bool call([void data]) {
     return _machine._trigger(this, null);
   }
+
+  /// Guards acceptance of this transition using the given test.
+  void guard(SimpleGuard test) {
+    _guards.add((_) => test());
+  }
 }
 
 /// A transition to a parameterized state.
 class ParameterizedMachineTransition<D> extends MachineTransition<D> {
   ParameterizedMachineTransition._(super.name, super.from, super.to, super.machine);
+
+  /// Guards acceptance of this transition using the given test.
+  void guard(Guard<D> test) {
+    _guards.add((data) => test(data as D));
+  }
 }

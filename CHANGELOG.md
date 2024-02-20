@@ -1,3 +1,7 @@
+## 1.0.4
+
+- Added support for state and transition guards.
+
 ## 1.0.3
 
 - It is no longer possible to use `pstate` without `ptransition` on accident.
