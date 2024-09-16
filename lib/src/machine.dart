@@ -40,8 +40,11 @@ class Machine {
   /// All states creates by this machine.
   final _states = <MachineState>{};
 
+  /// Whether or not this machine will queue up pending operations when not in operation.
+  final bool queue;
+
   /// Pending operations for this machine.
-  final _pendingOperations = <(MachineTransition, dynamic data)>[];
+  final _pending = <(MachineTransition, dynamic data)>[];
 
   /// The current state.
   MachineState _current = _none;
@@ -50,7 +53,10 @@ class Machine {
   final _currentController = StreamController<MachineState>.broadcast(sync: true);
 
   /// Creates a new machine with the given [name].
-  Machine(this.name);
+  Machine(
+    this.name, {
+    this.queue = false,
+  });
 
   /// Sets this machine's initial state to [state], with some [data] for parameterized states.
   ///
@@ -99,21 +105,15 @@ class Machine {
   }
 
   /// Starts the machine, processing all pending events.
-  ///
-  /// Optionally clears any pending events instead of processing them.
-  void start({
-    bool clear = false,
-  }) {
+  void start() {
     assert(_initial != null, 'You must supply an initial state with [initialize] first.');
     _transition(_initial!, _initialData);
 
-    if (!clear) {
-      for (final (transition, data) in _pendingOperations) {
-        _trigger(transition, data);
-      }
+    for (final (transition, data) in _pending) {
+      _trigger(transition, data);
     }
 
-    _pendingOperations.clear();
+    _pending.clear();
   }
 
   /// Stops the machine.
@@ -145,7 +145,10 @@ class Machine {
   bool _trigger(MachineTransition transition, dynamic data) {
     // Store transitions that come in before the machine has started.
     if (!isRunning) {
-      _pendingOperations.add((transition, data));
+      if (queue) {
+        _pending.add((transition, data));
+      }
+
       return false;
     }
 
@@ -214,8 +217,11 @@ sealed class MachineState<D> {
   }
 
   /// Makes a new, nested machine inside this state.
-  Machine nest(String name) {
-    final machine = Machine(name);
+  Machine nest(
+    String name, {
+    bool queue = false,
+  }) {
+    final machine = Machine(name, queue: queue);
     _submachines.add(machine);
     return machine;
   }

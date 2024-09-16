@@ -100,14 +100,14 @@ print(isOn()); // -> false
 
 Parameterized guards also have access to the proposed state data.
 
-### Transition Queue
+### Queue
 
-There can be some time between when a machine starts, and when your code wants to start calling transitions. To account for this, machines will enqueue transition attempts and process them when `start` is initially called.
+There can be some time between when a machine starts, and when your code wants to start calling transitions. To account for this, machines can be configured to enqueue incoming events.
 
 For example, the following code works as expected:
 
 ```dart
-final m = Machine('switch');
+final m = Machine('switch', queue: true);
 final isOn = m.state('on');
 final isOff = m.state('off');
 final turnOn = m.transition('turn on', {isOff}, isOn);
@@ -120,12 +120,6 @@ print(isOn()); // -> true
 ```
 
 I have found this queuing functionality to lead to more natural reasoning about machine behavior.
-
-If you wish to skip any pending events, there's parameter to do so:
-
-```dart
-m.start(clear: true);
-```
 
 ### Nested Machines
 
@@ -149,6 +143,8 @@ print(isBlue(), isRed()); // -> false, true
 turnOff();
 print(isBlue(), isRed()); // -> false, false
 ```
+
+Nested machines may also be individually configured to queue or not.
 
 ### Class-Based Definition
 

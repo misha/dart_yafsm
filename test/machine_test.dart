@@ -163,4 +163,30 @@ void main() {
     expect(turnOn(), isTrue);
     expect(isOn(), isTrue);
   });
+
+  test('queue', () {
+    {
+      final m = Machine('switch');
+      final isOn = m.state('on');
+      final isOff = m.state('off');
+      final turnOn = m.transition('turn on', {isOff}, isOn);
+      m.initialize(isOff);
+      turnOn();
+      m.start();
+
+      expect(isOff(), isTrue);
+    }
+
+    {
+      final m = Machine('switch', queue: true);
+      final isOn = m.state('on');
+      final isOff = m.state('off');
+      final turnOn = m.transition('turn on', {isOff}, isOn);
+      m.initialize(isOff);
+      turnOn();
+      m.start();
+
+      expect(isOn(), isTrue);
+    }
+  });
 }

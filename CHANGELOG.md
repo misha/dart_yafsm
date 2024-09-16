@@ -1,3 +1,8 @@
+## 1.1.0
+
+- Allow configuration of queuing behavior for machines at construction time.
+- **Breaking Change**. The new default is to *not* queue, and the `clear` parameter no longer exists.
+
 ## 1.0.4
 
 - Added support for state and transition guards.
