@@ -1,23 +1,31 @@
 import 'package:test/test.dart';
 import 'package:yafsm/yafsm.dart';
 
+class SwitchMachine extends Machine {
+  SwitchMachine({
+    super.queue,
+  }) : super('Switch') {
+    initialize(isOff);
+  }
+
+  late final isOn = state('on');
+  late final isOff = state('off');
+  late final turnOn = transition('turn on', {isOff}, isOn);
+  late final turnOff = transition('turn off', {isOn}, isOff);
+}
+
 void main() {
   test('simple machine', () {
-    final m = Machine('switch');
-    final isOn = m.state('on');
-    final isOff = m.state('off');
-    final turnOn = m.transition('turn on', {isOff}, isOn);
-    final turnOff = m.transition('turn off', {isOn}, isOff);
-    m.initialize(isOff);
+    final m = SwitchMachine();
     m.start();
 
-    expect(isOff(), isTrue);
-    turnOn();
-    expect(isOn(), isTrue);
-    turnOn();
-    expect(isOn(), isTrue);
-    turnOff();
-    expect(isOff(), isTrue);
+    expect(m.isOff(), isTrue);
+    m.turnOn();
+    expect(m.isOn(), isTrue);
+    m.turnOn();
+    expect(m.isOn(), isTrue);
+    m.turnOff();
+    expect(m.isOff(), isTrue);
   });
 
   test('nested machine', () {
@@ -53,33 +61,27 @@ void main() {
   });
 
   test('machine callbacks', () {
-    final m = Machine('switch');
-    final isOn = m.state('on');
-    final isOff = m.state('off');
-    final turnOn = m.transition('turn on', {isOff}, isOn);
-    final turnOff = m.transition('turn off', {isOn}, isOff);
-    m.initialize(isOff);
-
+    final m = SwitchMachine();
     var onCount = 0;
     var offCount = 0;
 
-    isOn.enter$.forEach((_) {
+    m.isOn.enter$.forEach((_) {
       onCount += 1;
     });
 
-    isOff.enter$.forEach((_) {
+    m.isOff.enter$.forEach((_) {
       offCount += 1;
     });
 
     m.start();
 
-    turnOn();
-    turnOff();
-    turnOn();
-    turnOff();
-    turnOn();
-    turnOn();
-    turnOff();
+    m.turnOn();
+    m.turnOff();
+    m.turnOn();
+    m.turnOff();
+    m.turnOn();
+    m.turnOn();
+    m.turnOff();
 
     expect(onCount, equals(3));
     expect(offCount, equals(4));
@@ -129,64 +131,77 @@ void main() {
   });
 
   test('state guard', () {
-    final m = Machine('switch');
-    final isOn = m.state('on');
-    final isOff = m.state('off');
-    final turnOn = m.transition('turn on', {isOff}, isOn);
-    m.initialize(isOff);
+    final m = SwitchMachine();
     m.start();
 
     bool hasElectricity = false;
-    isOn.guard(() => hasElectricity);
-    expect(turnOn(), isFalse);
-    expect(isOn(), isFalse);
+    m.isOn.guard(() => hasElectricity);
+    expect(m.turnOn(), isFalse);
+    expect(m.isOn(), isFalse);
 
     hasElectricity = true;
-    expect(turnOn(), isTrue);
-    expect(isOn(), isTrue);
+    expect(m.turnOn(), isTrue);
+    expect(m.isOn(), isTrue);
   });
 
   test('transition guard', () {
-    final m = Machine('switch');
-    final isOn = m.state('on');
-    final isOff = m.state('off');
-    final turnOn = m.transition('turn on', {isOff}, isOn);
-    m.initialize(isOff);
+    final m = SwitchMachine();
     m.start();
 
     bool hasElectricity = false;
-    turnOn.guard(() => hasElectricity);
-    expect(turnOn(), isFalse);
-    expect(isOn(), isFalse);
+    m.turnOn.guard(() => hasElectricity);
+    expect(m.turnOn(), isFalse);
+    expect(m.isOn(), isFalse);
 
     hasElectricity = true;
-    expect(turnOn(), isTrue);
-    expect(isOn(), isTrue);
+    expect(m.turnOn(), isTrue);
+    expect(m.isOn(), isTrue);
   });
 
-  test('queue', () {
-    {
-      final m = Machine('switch');
-      final isOn = m.state('on');
-      final isOff = m.state('off');
-      final turnOn = m.transition('turn on', {isOff}, isOn);
-      m.initialize(isOff);
-      turnOn();
+  group('queue', () {
+    test('disabled', () {
+      final m = SwitchMachine();
       m.start();
 
-      expect(isOff(), isTrue);
-    }
+      expect(m.isOff(), isTrue);
+    });
 
-    {
-      final m = Machine('switch', queue: true);
-      final isOn = m.state('on');
-      final isOff = m.state('off');
-      final turnOn = m.transition('turn on', {isOff}, isOn);
-      m.initialize(isOff);
-      turnOn();
+    test('enabled', () {
+      final m = SwitchMachine(queue: true);
+      m.turnOn();
       m.start();
 
-      expect(isOn(), isTrue);
-    }
+      expect(m.isOn(), isTrue);
+    });
+  });
+
+  group('toString', () {
+    test('simple', () {
+      final m = SwitchMachine();
+
+      m.start();
+      expect(m.toString(), equals('off'));
+    });
+
+    test('nested', () {
+      final m = SwitchMachine();
+      final color = m.isOn.nest('color');
+      final isBlue = color.state('blue');
+      final isRed = color.state('red');
+      final toRed = color.transition('to red', {isBlue}, isRed);
+      color.initialize(isBlue);
+
+      m.start();
+      expect(m.toString(), equals('off'));
+
+      m.turnOn();
+      expect(m.toString(), equals('on -> blue'));
+
+      toRed();
+      expect(m.toString(), equals('on -> red'));
+
+      m.turnOff();
+      expect(m.toString(), equals('off'));
+    });
   });
 }

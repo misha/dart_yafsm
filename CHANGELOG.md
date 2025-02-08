@@ -1,3 +1,10 @@
+## 1.1.1
+
+- Improved tests.
+- Improved class-based example with `extends`.
+- Slightly modified `toString` implementation to not used parentheses in the nested case.
+    - For example, `on -> (blue -> (bright))` is now `on -> blue -> bright`.
+
 ## 1.1.0
 
 - Allow configuration of queuing behavior for machines at construction time.

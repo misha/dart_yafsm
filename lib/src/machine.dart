@@ -136,7 +136,7 @@ class Machine {
     final machines = current._submachines;
 
     if (machines.isNotEmpty) {
-      return '$current -> (${machines.join(',')})';
+      return '$current -> ${machines.join(',')}';
     } else {
       return current.toString();
     }

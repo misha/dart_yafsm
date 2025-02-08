@@ -1,6 +1,6 @@
 name: yafsm
 description: Yet another Dart FSM.
-version: 1.1.0
+version: 1.1.1
 repository: https://github.com/misha/dart_yafsm
 environment:
   sdk: ^3.2.1
