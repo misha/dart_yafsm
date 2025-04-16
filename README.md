@@ -151,7 +151,7 @@ Nested machines may also be individually configured to queue or not.
 Machine definitions play well with the `late` keyword. This lends itself to an interesting class-based style in Dart. Here is the same switch example written in a class-based style:
 
 ```dart
-class SwitchMachine {
+class SwitchMachine extends Machine {
   SwitchMachine() : super('Switch') {
     initialize(isOff);
   }
