@@ -171,4 +171,44 @@ void main() {
     expect(m.turnOn(), isTrue);
     expect(m.isOn(), isTrue);
   });
+
+  test('nested machine', () {
+    final generalLocation = Machine();
+    final atHome = generalLocation.state('at home');
+    final isOut = generalLocation.state('is out');
+    final goHome = generalLocation.transition({isOut}, atHome);
+    final goOut = generalLocation.transition({atHome}, isOut);
+
+    final specificLocation = Machine();
+    final inKitchen = specificLocation.state('in the kitchen');
+    final inOffice = specificLocation.state('in the office');
+    // ignore: unused_local_variable
+    final goToKitchen = specificLocation.transition({inOffice}, inKitchen);
+    final goToOffice = specificLocation.transition({inKitchen}, inOffice);
+
+    atHome.nest(specificLocation, (m) => m.start(inKitchen));
+    generalLocation.start(isOut);
+
+    // Nested states inactive when parent not in 'atHome'.
+    expect(specificLocation.isStopped, isTrue);
+
+    // Transition to atHome activates nested machine.
+    goHome();
+    expect(atHome(), isTrue);
+    expect(inKitchen(), isTrue);
+
+    // Nested transitions work.
+    goToOffice();
+    expect(atHome(), isTrue);
+    expect(inOffice(), isTrue);
+
+    // Leaving parent state stops nested machine.
+    goOut();
+    expect(isOut(), isTrue);
+    expect(specificLocation.isStopped, isTrue);
+
+    // Re-entering parent state restarts nested machine at initial state.
+    goHome();
+    expect(inKitchen(), isTrue);
+  });
 }

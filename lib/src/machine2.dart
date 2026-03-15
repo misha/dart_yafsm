@@ -11,6 +11,7 @@ final Set<State> any = .unmodifiable({SimpleState._(Machine(), label: 'any')});
 class Machine {
   final Set<State> _states = {};
   final Map<State, List<bool Function(dynamic)>> _guards = {};
+  final Map<State, List<(Machine, void Function(Machine))>> _children = {};
 
   (State, dynamic)? _current;
 
@@ -35,7 +36,7 @@ class Machine {
       throw StateError('The machine is already running.');
     }
 
-    _apply(null, state, null);
+    _enter(null, null, state, null);
   }
 
   void pstart<T, S extends ParameterizedState<T>>(S state, T data) {
@@ -43,11 +44,13 @@ class Machine {
       throw StateError('The machine is already running.');
     }
 
-    _apply(null, state, data);
+    _enter(null, null, state, data);
   }
 
   void stop() {
-    _current = null;
+    if (isRunning) {
+      _exit(null, current, null);
+    }
   }
 
   SimpleState state([String? label]) {
@@ -91,15 +94,22 @@ class Machine {
       }
     }
 
-    _apply(transition, next, data);
+    _apply(transition, _current?.$1, next, data);
     return true;
   }
 
-  void _apply(Transition? transition, State next, dynamic data) {
-    final previous = _current?.$1;
+  void _apply(Transition? transition, State? previous, State next, dynamic data) {
+    _exit(transition, previous, data);
+    _enter(transition, previous, next, data);
+  }
 
+  void _exit(Transition? transition, State? previous, dynamic data) {
     for (final fn in _onExit[previous] ?? const <void Function(dynamic)>[]) {
       fn(data);
+    }
+
+    for (final (child, _) in _children[previous] ?? const <(Machine, void Function(Machine))>[]) {
+      child.stop();
     }
 
     if (transition != null) {
@@ -108,6 +118,10 @@ class Machine {
       }
     }
 
+    _current = null;
+  }
+
+  void _enter(Transition? transition, State? previous, State next, dynamic data) {
     _current = (next, data);
 
     for (final fn in _onChange) {
@@ -116,6 +130,14 @@ class Machine {
 
     for (final fn in _onEnter[next] ?? const <void Function(dynamic)>[]) {
       fn(data);
+    }
+
+    for (final (child, start) in _children[next] ?? const <(Machine, void Function(Machine))>[]) {
+      start(child);
+
+      if (child.isStopped) {
+        throw StateError('Callback failed to start nested machine.');
+      }
     }
   }
 }
@@ -230,4 +252,13 @@ extension SimpleStateGuards on SimpleState {
 extension ParameterizedStateGuards<T> on ParameterizedState<T> {
   void guard(bool Function(T data) test) => //
       (_parent._guards[this] ??= []).add((data) => test(data as T));
+}
+
+//
+// Nesting
+//
+
+extension StateNesting on State {
+  void nest(Machine child, void Function(Machine) start) => //
+      (_parent._children[this] ??= []).add((child, start));
 }
