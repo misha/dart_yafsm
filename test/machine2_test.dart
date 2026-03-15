@@ -43,13 +43,9 @@ void main() {
   group('callbacks', () {
     test('onChange', () {
       final changes = <(State?, State)>[];
-
-      void record(State? previous, State next) {
-        changes.add((previous, next));
-      }
-
       final m = SwitchMachine();
-      m.onChange(record);
+      m.onChange((previous, next) => changes.add((previous, next)));
+
       m.start(m.isOff);
       m.turnOn();
       m.turnOff();
@@ -64,6 +60,43 @@ void main() {
           (m.isOn, m.isOff),
           (m.isOff, m.isOn),
           (m.isOn, m.isOff),
+        ]),
+      );
+    });
+
+    test('onEnter/onExit', () {
+      final enters = <State>[];
+      final exits = <State>[];
+      final m = SwitchMachine();
+      m.isOff.onEnter(() => enters.add(m.isOff));
+      m.isOff.onExit(() => exits.add(m.isOff));
+      m.isOn.onEnter(() => enters.add(m.isOn));
+      m.isOn.onExit(() => exits.add(m.isOn));
+
+      m.start(m.isOff);
+      m.turnOn();
+      m.turnOff();
+      m.turnOn();
+      m.turnOff();
+
+      expect(
+        enters,
+        orderedEquals([
+          m.isOff,
+          m.isOn,
+          m.isOff,
+          m.isOn,
+          m.isOff,
+        ]),
+      );
+
+      expect(
+        exits,
+        orderedEquals([
+          m.isOff,
+          m.isOn,
+          m.isOff,
+          m.isOn,
         ]),
       );
     });
