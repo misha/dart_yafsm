@@ -10,13 +10,14 @@ final Set<State> any = .unmodifiable({SimpleState._(Machine(), label: 'any')});
 
 class Machine {
   final Set<State> _states = {};
+  final Map<State, List<bool Function(dynamic)>> _guards = {};
+
   (State, dynamic)? _current;
 
   final List<void Function(State?, State)> _onChange = [];
   final Map<State, List<void Function(dynamic)>> _onEnter = {};
   final Map<State, List<void Function(dynamic)>> _onExit = {};
   final Map<Transition, List<void Function(State)>> _onTrigger = {};
-  final Map<Transition, List<bool Function(dynamic)>> _guards = {};
 
   bool get isRunning => _current != null;
   bool get isStopped => _current == null;
@@ -82,13 +83,15 @@ class Machine {
       return false;
     }
 
-    for (final guard in _guards[transition] ?? const <bool Function(dynamic)>[]) {
+    final next = transition.to;
+
+    for (final guard in _guards[next] ?? const <bool Function(dynamic)>[]) {
       if (!guard(data)) {
         return false;
       }
     }
 
-    _apply(transition, transition.to, data);
+    _apply(transition, next, data);
     return true;
   }
 
@@ -219,12 +222,12 @@ extension TransitionCallbacks<S extends State> on Transition<S> {
 // Guards
 //
 
-extension SimpleTransitionGuards on SimpleTransition {
+extension SimpleStateGuards on SimpleState {
   void guard(bool Function() test) => //
       (_parent._guards[this] ??= []).add((_) => test());
 }
 
-extension ParameterizedTransitionGuards<T> on ParameterizedTransition<T> {
+extension ParameterizedStateGuards<T> on ParameterizedState<T> {
   void guard(bool Function(T data) test) => //
       (_parent._guards[this] ??= []).add((data) => test(data as T));
 }
