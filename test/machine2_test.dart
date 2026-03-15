@@ -186,7 +186,7 @@ void main() {
     final goToKitchen = specificLocation.transition({inOffice}, inKitchen);
     final goToOffice = specificLocation.transition({inKitchen}, inOffice);
 
-    atHome.nest(specificLocation, (m) => m.start(inKitchen));
+    atHome.nest(specificLocation, () => .start(inKitchen));
     generalLocation.start(isOut);
 
     // Nested states inactive when parent not in 'atHome'.

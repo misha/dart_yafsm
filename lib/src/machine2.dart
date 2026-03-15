@@ -11,7 +11,7 @@ final Set<State> any = .unmodifiable({SimpleState._(Machine(), label: 'any')});
 class Machine {
   final Set<State> _states = {};
   final Map<State, List<bool Function(dynamic)>> _guards = {};
-  final Map<State, List<(Machine, void Function(Machine))>> _children = {};
+  final Map<State, List<(Machine, Ignition Function())>> _children = {};
 
   (State, dynamic)? _current;
 
@@ -132,12 +132,8 @@ class Machine {
       fn(data);
     }
 
-    for (final (child, start) in _children[next] ?? const <(Machine, void Function(Machine))>[]) {
-      start(child);
-
-      if (child.isStopped) {
-        throw StateError('Callback failed to start nested machine.');
-      }
+    for (final (child, ignition) in _children[next] ?? const <(Machine, Ignition Function())>[]) {
+      ignition()._start(child);
     }
   }
 }
@@ -258,7 +254,35 @@ extension ParameterizedStateGuards<T> on ParameterizedState<T> {
 // Nesting
 //
 
+sealed class Ignition {
+  static const start = SimpleStateIgnition._;
+  static const pstart = ParameterizedStateIgnition._;
+
+  const Ignition();
+
+  void _start(Machine machine);
+}
+
+class SimpleStateIgnition extends Ignition {
+  const SimpleStateIgnition._(this.state);
+
+  final SimpleState state;
+
+  @override
+  void _start(Machine machine) => machine.start(state);
+}
+
+class ParameterizedStateIgnition<T> extends Ignition {
+  const ParameterizedStateIgnition._(this.state, this.data);
+
+  final ParameterizedState<T> state;
+  final T data;
+
+  @override
+  void _start(Machine machine) => machine.pstart(state, data);
+}
+
 extension StateNesting on State {
-  void nest(Machine child, void Function(Machine) start) => //
+  void nest(Machine child, Ignition Function() start) => //
       (_parent._children[this] ??= []).add((child, start));
 }
