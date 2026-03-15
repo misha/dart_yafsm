@@ -5,7 +5,7 @@
 final Set<State> any = .unmodifiable({SimpleState._(Machine(), label: 'any')});
 
 //
-// Machines
+// Machine
 //
 
 class Machine {
