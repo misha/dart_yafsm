@@ -80,13 +80,13 @@ class Machine {
   void _apply(Transition? transition, State next, dynamic data) {
     final previous = _current?.$1;
 
-    for (final fn in _onExit[previous] ?? const []) {
+    for (final fn in _onExit[previous] ?? const <void Function(dynamic)>[]) {
       fn(data);
     }
 
     if (transition != null) {
-      for (final fn in _onTrigger[transition] ?? const []) {
-        fn(previous, next);
+      for (final fn in _onTrigger[transition] ?? const <void Function(State)>[]) {
+        fn(previous!);
       }
     }
 
@@ -96,7 +96,7 @@ class Machine {
       fn(previous, next);
     }
 
-    for (final fn in _onEnter[next] ?? const []) {
+    for (final fn in _onEnter[next] ?? const <void Function(dynamic)>[]) {
       fn(data);
     }
   }
