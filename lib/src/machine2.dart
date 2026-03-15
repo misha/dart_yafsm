@@ -30,7 +30,7 @@ class Machine {
     _apply(null, state, null);
   }
 
-  void pstart<T>(ParameterizedState<T> state, T data) {
+  void pstart<T, S extends ParameterizedState<T>>(S state, T data) {
     assert(isStopped, 'The machine is already running.');
     _apply(null, state, data);
   }
@@ -186,10 +186,10 @@ extension SimpleStateCallbacks on SimpleState {
 
 extension ParameterizedStateCallbacks<T> on ParameterizedState<T> {
   void onEnter(void Function(T data) fn) => //
-      (_parent._onEnter[this] ??= []).add(fn as Function(dynamic));
+      (_parent._onEnter[this] ??= []).add((data) => fn(data as T));
 
   void onExit(void Function(T data) fn) => //
-      (_parent._onExit[this] ??= []).add(fn as Function(dynamic));
+      (_parent._onExit[this] ??= []).add((data) => fn(data as T));
 }
 
 extension TransitionCallbacks<S extends State> on Transition<S> {

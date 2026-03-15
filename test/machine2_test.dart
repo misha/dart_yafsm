@@ -124,4 +124,37 @@ void main() {
       );
     });
   });
+
+  test('parameterization', () {
+    String? lastOnReason;
+    String? lastOffReason;
+
+    final m = Machine();
+    final isOn = m.pstate<({String reason})>('on');
+    final isOff = m.pstate<({String reason})>('off');
+    final turnOn = m.ptransition({isOff}, isOn);
+    final turnOff = m.ptransition({isOn}, isOff);
+
+    isOn.onEnter((data) => lastOnReason = data.reason);
+    isOff.onEnter((data) => lastOffReason = data.reason);
+
+    expect(lastOnReason, isNull);
+    expect(lastOffReason, isNull);
+
+    m.pstart(isOff, (reason: 'a'));
+    expect(lastOnReason, isNull);
+    expect(lastOffReason, 'a');
+
+    turnOn((reason: 'b'));
+    expect(lastOnReason, 'b');
+    expect(lastOffReason, 'a');
+
+    turnOn((reason: 'c'));
+    expect(lastOnReason, 'b');
+    expect(lastOffReason, 'a');
+
+    turnOff(((reason: 'd')));
+    expect(lastOnReason, 'b');
+    expect(lastOffReason, 'd');
+  });
 }
