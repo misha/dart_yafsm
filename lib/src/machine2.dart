@@ -194,5 +194,5 @@ extension ParameterizedStateCallbacks<T> on ParameterizedState<T> {
 
 extension TransitionCallbacks<S extends State> on Transition<S> {
   void onTrigger(Function(State previous, S next) fn) => //
-      (_parent._onTrigger[this] ?? []).add((previous) => fn(previous, to));
+      (_parent._onTrigger[this] ??= []).add((previous) => fn(previous, to));
 }
