@@ -16,6 +16,7 @@ class Machine {
   final Map<State, List<void Function(dynamic)>> _onEnter = {};
   final Map<State, List<void Function(dynamic)>> _onExit = {};
   final Map<Transition, List<void Function(State)>> _onTrigger = {};
+  final Map<Transition, List<bool Function(dynamic)>> _guards = {};
 
   bool get isRunning => _current != null;
   bool get isStopped => _current == null;
@@ -71,6 +72,12 @@ class Machine {
 
     if (!(transition.from.contains(current) || identical(transition.from, any))) {
       return false;
+    }
+
+    for (final guard in _guards[transition] ?? const <bool Function(dynamic)>[]) {
+      if (!guard(data)) {
+        return false;
+      }
     }
 
     _apply(transition, transition.to, data);
@@ -195,4 +202,18 @@ extension ParameterizedStateCallbacks<T> on ParameterizedState<T> {
 extension TransitionCallbacks<S extends State> on Transition<S> {
   void onTrigger(void Function(State previous, S next) fn) => //
       (_parent._onTrigger[this] ??= []).add((previous) => fn(previous, to));
+}
+
+//
+// Guards
+//
+
+extension SimpleTransitionGuards on SimpleTransition {
+  void guard(bool Function() test) => //
+      (_parent._guards[this] ??= []).add((_) => test());
+}
+
+extension ParameterizedTransitionGuards<T> on ParameterizedTransition<T> {
+  void guard(bool Function(T data) test) => //
+      (_parent._guards[this] ??= []).add((data) => test(data as T));
 }

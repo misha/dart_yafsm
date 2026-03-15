@@ -157,4 +157,18 @@ void main() {
     expect(lastOnReason, 'b');
     expect(lastOffReason, 'd');
   });
+
+  test('guards', () {
+    final m = SwitchMachine();
+    m.start(m.isOff);
+
+    bool hasElectricity = false;
+    m.turnOn.guard(() => hasElectricity);
+    expect(m.turnOn(), isFalse);
+    expect(m.isOn(), isFalse);
+
+    hasElectricity = true;
+    expect(m.turnOn(), isTrue);
+    expect(m.isOn(), isTrue);
+  });
 }
