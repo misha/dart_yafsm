@@ -1,3 +1,11 @@
+## 2.0.0
+
+- Machine, state, and transition labels are now optional, final parameters.
+- It is now possible to select a starting state dynamically with `start` and `pstart`.
+- The `$` syntax for streams is gone. Instead, you pass callbacks to functions, e.g. `onEnter`, `onChange`.
+- Machines no longer need to be `dispose`d, as all callbacks are executed synchronously.
+- Transitions may now receive callbacks when they are confirmed to have triggered via `onTrigger`.
+
 ## 1.1.1
 
 - Improved tests.
