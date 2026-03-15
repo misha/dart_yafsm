@@ -12,7 +12,7 @@ class Machine {
   final Set<State> _states = {};
   (State, dynamic)? _current;
 
-  final List<Function(State)> _onChange = [];
+  final List<Function(State?, State)> _onChange = [];
   final Map<State, List<Function(dynamic)>> _onEnter = {};
   final Map<State, List<Function(dynamic)>> _onExit = {};
   final Map<Transition, List<Function(State)>> _onTrigger = {};
@@ -27,12 +27,12 @@ class Machine {
 
   void start(SimpleState state) {
     assert(isStopped, 'The machine is already running.');
-    _current = (state, null);
+    _apply(state, null);
   }
 
   void pstart<T>(ParameterizedState<T> state, T data) {
     assert(isStopped, 'The machine is already running.');
-    _current = (state, data);
+    _apply(state, data);
   }
 
   void stop() {
@@ -64,7 +64,7 @@ class Machine {
     return ParameterizedTransition._(this, from: from, to: to, label: label);
   }
 
-  bool _apply<T>(Transition transition, dynamic data) {
+  bool _trigger(Transition transition, dynamic data) {
     if (!isRunning) {
       return false;
     }
@@ -73,8 +73,12 @@ class Machine {
       return false;
     }
 
-    final previous = _current!.$1;
-    final next = transition.to;
+    _apply(transition.to, data);
+    return true;
+  }
+
+  void _apply(State next, dynamic data) {
+    final previous = _current?.$1;
 
     for (final fn in _onExit[previous] ?? const []) {
       fn(data);
@@ -83,14 +87,12 @@ class Machine {
     _current = (next, data);
 
     for (final fn in _onChange) {
-      fn(previous);
+      fn(previous, next);
     }
 
     for (final fn in _onEnter[next] ?? const []) {
       fn(data);
     }
-
-    return true;
   }
 }
 
@@ -146,7 +148,7 @@ class SimpleTransition extends Transition<SimpleState> {
     super.label,
   });
 
-  bool call() => _parent._apply<void>(this, null);
+  bool call() => _parent._trigger(this, null);
 }
 
 class ParameterizedTransition<T> extends Transition<ParameterizedState<T>> {
@@ -157,7 +159,7 @@ class ParameterizedTransition<T> extends Transition<ParameterizedState<T>> {
     String? label,
   });
 
-  bool call(T data) => _parent._apply<T>(this, data);
+  bool call(T data) => _parent._trigger(this, data);
 }
 
 //
@@ -165,7 +167,7 @@ class ParameterizedTransition<T> extends Transition<ParameterizedState<T>> {
 //
 
 extension MachineCallbacks on Machine {
-  void onChange(Function(State state) fn) => _onChange.add(fn);
+  void onChange(Function(State? previous, State next) fn) => _onChange.add(fn);
 }
 
 extension SimpleStateCallbacks on SimpleState {
