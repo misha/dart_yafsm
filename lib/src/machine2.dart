@@ -11,7 +11,7 @@ final Set<State> any = .unmodifiable({SimpleState._(Machine(), label: 'any')});
 class Machine {
   final Set<State> _states = {};
   final Map<State, List<bool Function(dynamic)>> _guards = {};
-  final Map<State, List<(Machine, Ignition Function())>> _children = {};
+  final Map<State, List<(Machine, Ignition Function(dynamic))>> _children = {};
 
   (State, dynamic)? _current;
 
@@ -132,8 +132,8 @@ class Machine {
       fn(data);
     }
 
-    for (final (child, ignition) in _children[next] ?? const <(Machine, Ignition Function())>[]) {
-      ignition()._start(child);
+    for (final (child, ignition) in _children[next] ?? const <(Machine, Ignition Function(dynamic))>[]) {
+      ignition(data)._start(child);
     }
   }
 }
@@ -282,7 +282,12 @@ class ParameterizedStateIgnition<T> extends Ignition {
   void _start(Machine machine) => machine.pstart(state, data);
 }
 
-extension StateNesting on State {
+extension SimpleStateNesting on SimpleState {
   void nest(Machine child, Ignition Function() start) => //
-      (_parent._children[this] ??= []).add((child, start));
+      (_parent._children[this] ??= []).add((child, (_) => start()));
+}
+
+extension ParameterizedStateNesting<T> on ParameterizedState<T> {
+  void nest(Machine child, Ignition Function(T data) start) => //
+      (_parent._children[this] ??= []).add((child, (data) => start(data as T)));
 }

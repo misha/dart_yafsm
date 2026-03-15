@@ -172,7 +172,7 @@ void main() {
     expect(m.isOn(), isTrue);
   });
 
-  test('nested machine', () {
+  test('simple nested machine', () {
     final generalLocation = Machine();
     final atHome = generalLocation.state('at home');
     final isOut = generalLocation.state('is out');
