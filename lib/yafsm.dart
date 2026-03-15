@@ -1,4 +1,4 @@
 /// Yet another Dart FSM implementation.
-library;
+library yafsm;
 
 export 'src/machine.dart';
