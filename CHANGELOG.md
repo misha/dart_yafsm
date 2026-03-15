@@ -5,6 +5,9 @@
 - The `$` syntax for streams is gone. Instead, you pass callbacks to functions, e.g. `onEnter`, `onChange`.
 - Machines no longer need to be `dispose`d, as all callbacks are executed synchronously.
 - Transitions may now receive callbacks when they are confirmed to have triggered via `onTrigger`.
+- States may now have any number of nested machines.
+- Nested machines are now completely separate. For the class-based style, they must be a different class. This allows them to be reused multiple times.
+- Nested machines may now dynamically determine their initial state, including based on data in root state, if parameterized.
 
 ## 1.1.1
 
