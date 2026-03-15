@@ -12,10 +12,10 @@ class Machine {
   final Set<State> _states = {};
   (State, dynamic)? _current;
 
-  final List<Function(State?, State)> _onChange = [];
-  final Map<State, List<Function(dynamic)>> _onEnter = {};
-  final Map<State, List<Function(dynamic)>> _onExit = {};
-  final Map<Transition, List<Function(State)>> _onTrigger = {};
+  final List<void Function(State?, State)> _onChange = [];
+  final Map<State, List<void Function(dynamic)>> _onEnter = {};
+  final Map<State, List<void Function(dynamic)>> _onExit = {};
+  final Map<Transition, List<void Function(State)>> _onTrigger = {};
 
   bool get isRunning => _current != null;
   bool get isStopped => _current == null;
@@ -173,26 +173,26 @@ class ParameterizedTransition<T> extends Transition<ParameterizedState<T>> {
 //
 
 extension MachineCallbacks on Machine {
-  void onChange(Function(State? previous, State next) fn) => _onChange.add(fn);
+  void onChange(void Function(State? previous, State next) fn) => _onChange.add(fn);
 }
 
 extension SimpleStateCallbacks on SimpleState {
-  void onEnter(Function() fn) => //
+  void onEnter(void Function() fn) => //
       (_parent._onEnter[this] ??= []).add((_) => fn());
 
-  void onExit(Function() fn) => //
+  void onExit(void Function() fn) => //
       (_parent._onExit[this] ??= []).add((_) => fn());
 }
 
 extension ParameterizedStateCallbacks<T> on ParameterizedState<T> {
-  void onEnter(Function(T data) fn) => //
+  void onEnter(void Function(T data) fn) => //
       (_parent._onEnter[this] ??= []).add(fn as Function(dynamic));
 
-  void onExit(Function(T data) fn) => //
+  void onExit(void Function(T data) fn) => //
       (_parent._onExit[this] ??= []).add(fn as Function(dynamic));
 }
 
 extension TransitionCallbacks<S extends State> on Transition<S> {
-  void onTrigger(Function(State previous, S next) fn) => //
+  void onTrigger(void Function(State previous, S next) fn) => //
       (_parent._onTrigger[this] ??= []).add((previous) => fn(previous, to));
 }
