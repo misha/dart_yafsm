@@ -22,22 +22,30 @@ class Machine {
   bool get isStopped => _current == null;
 
   State get current {
-    assert(isRunning, 'The machine is not running yet.');
+    if (isStopped) {
+      throw StateError('The machine is not running yet.');
+    }
+
     return _current!.$1;
   }
 
   void start(SimpleState state) {
-    assert(isStopped, 'The machine is already running.');
+    if (isRunning) {
+      throw StateError('The machine is already running.');
+    }
+
     _apply(null, state, null);
   }
 
   void pstart<T, S extends ParameterizedState<T>>(S state, T data) {
-    assert(isStopped, 'The machine is already running.');
+    if (isRunning) {
+      throw StateError('The machine is already running.');
+    }
+
     _apply(null, state, data);
   }
 
   void stop() {
-    assert(isRunning, 'The machine is already stopped.');
     _current = null;
   }
 
@@ -130,7 +138,10 @@ class ParameterizedState<T> extends State {
   const ParameterizedState._(super.parent, {super.label});
 
   T get data {
-    assert(call(), 'The state is not active.');
+    if (!call()) {
+      throw StateError('This state is not active.');
+    }
+
     return _parent._current!.$2 as T;
   }
 }
