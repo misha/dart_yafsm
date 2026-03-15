@@ -100,5 +100,28 @@ void main() {
         ]),
       );
     });
+
+    test('onTrigger', () {
+      final triggers = <(State, State)>[];
+      final m = SwitchMachine();
+      m.turnOff.onTrigger((from, to) => triggers.add((from, to)));
+      m.turnOn.onTrigger((from, to) => triggers.add((from, to)));
+
+      m.start(m.isOff);
+      m.turnOn();
+      m.turnOff();
+      m.turnOn();
+      m.turnOff();
+
+      expect(
+        triggers,
+        orderedEquals([
+          (m.isOff, m.isOn),
+          (m.isOn, m.isOff),
+          (m.isOff, m.isOn),
+          (m.isOn, m.isOff),
+        ]),
+      );
+    });
   });
 }

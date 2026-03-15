@@ -27,12 +27,12 @@ class Machine {
 
   void start(SimpleState state) {
     assert(isStopped, 'The machine is already running.');
-    _apply(state, null);
+    _apply(null, state, null);
   }
 
   void pstart<T>(ParameterizedState<T> state, T data) {
     assert(isStopped, 'The machine is already running.');
-    _apply(state, data);
+    _apply(null, state, data);
   }
 
   void stop() {
@@ -64,7 +64,7 @@ class Machine {
     return ParameterizedTransition._(this, from: from, to: to, label: label);
   }
 
-  bool _trigger(Transition transition, dynamic data) {
+  bool _attempt(Transition transition, dynamic data) {
     if (!isRunning) {
       return false;
     }
@@ -73,15 +73,21 @@ class Machine {
       return false;
     }
 
-    _apply(transition.to, data);
+    _apply(transition, transition.to, data);
     return true;
   }
 
-  void _apply(State next, dynamic data) {
+  void _apply(Transition? transition, State next, dynamic data) {
     final previous = _current?.$1;
 
     for (final fn in _onExit[previous] ?? const []) {
       fn(data);
+    }
+
+    if (transition != null) {
+      for (final fn in _onTrigger[transition] ?? const []) {
+        fn(previous, next);
+      }
     }
 
     _current = (next, data);
@@ -148,7 +154,7 @@ class SimpleTransition extends Transition<SimpleState> {
     super.label,
   });
 
-  bool call() => _parent._trigger(this, null);
+  bool call() => _parent._attempt(this, null);
 }
 
 class ParameterizedTransition<T> extends Transition<ParameterizedState<T>> {
@@ -159,7 +165,7 @@ class ParameterizedTransition<T> extends Transition<ParameterizedState<T>> {
     String? label,
   });
 
-  bool call(T data) => _parent._trigger(this, data);
+  bool call(T data) => _parent._attempt(this, data);
 }
 
 //
