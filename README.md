@@ -143,14 +143,21 @@ States tend to explode in complexity; nested machines can help combat the issue.
 To create a nested machine, call `nest` on the target state. All nested machines are started and stopped automatically as its parent state is entered and exited. The `nest` function also takes an ignition function, `.start` or `.pstart`, which can dynamically control the initial state of the nested machine.
 
 ```dart
+final generalLocation = Machine();
+final atHome = generalLocation.state();
+final isOut = generalLocation.state();
+final goHome = generalLocation.transition({isOut}, atHome);
+final goOut = generalLocation.transition({atHome}, isOut);
+  
 final specificLocation = Machine();
-final inKitchen = specificLocation.state('in the kitchen');
-final inOffice = specificLocation.state('in the office');
+final inKitchen = specificLocation.state();
+final inOffice = specificLocation.state();
 final goToOffice = specificLocation.transition({inKitchen}, inOffice);
+final goToKitchen = specificLocation.transition({inOffice}, inKitchen);
 
 atHome.nest(specificLocation, () => .start(inKitchen));
-// ...
 m.start(isOut);
+
 print(inKitchen()); // -> false
 goHome();
 print(inKitchen()); // -> true
