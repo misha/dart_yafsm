@@ -178,8 +178,8 @@ Machine definitions play well with the `late` keyword. This lends itself to an i
 
 ```dart
 class SwitchMachine extends Machine {
-  late final isOn = state('on');
-  late final isOff = state('off');
+  late final isOn = state();
+  late final isOff = state();
   late final turnOn = transition({isOff}, isOn);
   late final turnOff = transition({isOn}, isOff);
 }
