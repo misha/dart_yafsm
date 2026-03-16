@@ -1,7 +1,7 @@
 // This file is completely written and managed by Claude Code.
 
 import 'package:test/test.dart';
-import 'package:yafsm/src/machine2.dart';
+import 'package:yafsm/src/machine.dart';
 
 //
 // Machine subclasses
@@ -596,14 +596,17 @@ void main() {
       f.retry((name: 'Bob', email: 'b@c.d'));
       f.submit((name: 'Bob', email: 'b@c.d', at: DateTime(2026)));
 
-      expect(log, orderedEquals([
-        'filling:Alice',
-        'left-filling:Alice',
-        'error:bad',
-        'filling:Bob',
-        'left-filling:Bob',
-        'submitted:Bob',
-      ]));
+      expect(
+        log,
+        orderedEquals([
+          'filling:Alice',
+          'left-filling:Alice',
+          'error:bad',
+          'filling:Bob',
+          'left-filling:Bob',
+          'submitted:Bob',
+        ]),
+      );
     });
   });
 

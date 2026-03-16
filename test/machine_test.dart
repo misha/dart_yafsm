@@ -1,138 +1,222 @@
 import 'package:test/test.dart';
-import 'package:yafsm/yafsm.dart';
+import 'package:yafsm/src/machine.dart';
 
 class SwitchMachine extends Machine {
-  SwitchMachine({
-    super.queue,
-  }) : super('Switch') {
-    initialize(isOff);
-  }
-
-  late final isOn = state('on');
-  late final isOff = state('off');
-  late final turnOn = transition('turn on', {isOff}, isOn);
-  late final turnOff = transition('turn off', {isOn}, isOff);
+  late final isOn = state();
+  late final isOff = state();
+  late final turnOn = transition({isOff}, isOn);
+  late final turnOff = transition({isOn}, isOff);
 }
 
 void main() {
-  test('simple machine', () {
-    final m = SwitchMachine();
-    m.start();
+  test('inline switch', () {
+    final m = Machine();
+    final isOn = m.state();
+    final isOff = m.state();
+    final turnOn = m.transition({isOff}, isOn);
+    final turnOff = m.transition({isOn}, isOff);
+    m.start(isOff);
 
-    expect(m.isOff(), isTrue);
-    m.turnOn();
-    expect(m.isOn(), isTrue);
-    m.turnOn();
-    expect(m.isOn(), isTrue);
-    m.turnOff();
-    expect(m.isOff(), isTrue);
+    expect(isOff(), isTrue);
+    turnOn();
+    expect(isOn(), isTrue);
+    turnOn();
+    expect(isOn(), isTrue);
+    turnOff();
+    expect(isOff(), isTrue);
   });
 
-  test('nested machine', () {
-    final m = Machine('location');
-    final atHome = m.state('at home');
-    final isOut = m.state('isOut');
-    final goHome = m.transition('go home', {isOut}, atHome);
-    final goOut = m.transition('go out', {atHome}, isOut);
-    m.initialize(isOut);
+  test('initial state', () {
+    {
+      final m = SwitchMachine();
+      m.start(m.isOff);
+      expect(m.isOff(), isTrue);
+    }
 
-    final m2 = atHome.nest('home location');
-    final inKitchen = m2.state('in the kitchen');
-    final inOffice = m2.state('in the office');
-    // ignore: unused_local_variable
-    final goToKitchen = m2.transition('go to the kitchen', {inOffice}, inKitchen);
-    final goToOffice = m2.transition('go to the office', {inKitchen}, inOffice);
-    m2.initialize(inKitchen);
-
-    m.start();
-
-    expect(inKitchen(), isFalse);
-    expect(inOffice(), isFalse);
-    goHome();
-    expect(atHome(), isTrue);
-    expect(inKitchen(), isTrue);
-    goToOffice();
-    expect(atHome(), isTrue);
-    expect(inOffice(), isTrue);
-    goOut();
-    expect(isOut(), isTrue);
-    expect(inKitchen(), isFalse);
-    expect(inOffice(), isFalse);
+    {
+      final m = SwitchMachine();
+      m.start(m.isOn);
+      expect(m.isOn(), isTrue);
+    }
   });
 
-  test('machine callbacks', () {
-    final m = SwitchMachine();
-    var onCount = 0;
-    var offCount = 0;
+  group('callbacks', () {
+    test('onChange', () {
+      final changes = <(State?, State?)>[];
+      final m = SwitchMachine();
+      m.onChange((previous, next) => changes.add((previous, next)));
 
-    m.isOn.enter$.forEach((_) {
-      onCount += 1;
+      m.start(m.isOff);
+      m.turnOn();
+      m.turnOff();
+      m.turnOn();
+      m.turnOff();
+      m.stop();
+
+      expect(
+        changes,
+        orderedEquals([
+          (null, m.isOff),
+          (m.isOff, m.isOn),
+          (m.isOn, m.isOff),
+          (m.isOff, m.isOn),
+          (m.isOn, m.isOff),
+          (m.isOff, null),
+        ]),
+      );
     });
 
-    m.isOff.enter$.forEach((_) {
-      offCount += 1;
+    test('onEnter/onExit', () {
+      final enters = <State>[];
+      final exits = <State>[];
+      final m = SwitchMachine();
+      m.isOff.onEnter(() => enters.add(m.isOff));
+      m.isOff.onExit(() => exits.add(m.isOff));
+      m.isOn.onEnter(() => enters.add(m.isOn));
+      m.isOn.onExit(() => exits.add(m.isOn));
+
+      m.start(m.isOff);
+      m.turnOn();
+      m.turnOff();
+      m.turnOn();
+      m.turnOff();
+
+      expect(
+        enters,
+        orderedEquals([
+          m.isOff,
+          m.isOn,
+          m.isOff,
+          m.isOn,
+          m.isOff,
+        ]),
+      );
+
+      expect(
+        exits,
+        orderedEquals([
+          m.isOff,
+          m.isOn,
+          m.isOff,
+          m.isOn,
+        ]),
+      );
+
+      m.stop();
+
+      expect(
+        exits,
+        orderedEquals([
+          m.isOff,
+          m.isOn,
+          m.isOff,
+          m.isOn,
+          m.isOff,
+        ]),
+      );
     });
 
-    m.start();
+    test('onTrigger', () {
+      final triggers = <(State, State)>[];
+      final m = SwitchMachine();
+      m.turnOff.onTrigger((from, to) => triggers.add((from, to)));
+      m.turnOn.onTrigger((from, to) => triggers.add((from, to)));
 
-    m.turnOn();
-    m.turnOff();
-    m.turnOn();
-    m.turnOff();
-    m.turnOn();
-    m.turnOn();
-    m.turnOff();
+      m.start(m.isOff);
+      m.turnOn();
+      m.turnOff();
+      m.turnOn();
+      m.turnOff();
+      m.stop();
 
-    expect(onCount, equals(3));
-    expect(offCount, equals(4));
+      expect(
+        triggers,
+        orderedEquals([
+          (m.isOff, m.isOn),
+          (m.isOn, m.isOff),
+          (m.isOff, m.isOn),
+          (m.isOn, m.isOff),
+        ]),
+      );
+    });
+
+    test('order', () {
+      final callbacks = <String>[];
+      final m = SwitchMachine();
+      m.onChange((_, _) => callbacks.add('onChange'));
+      m.isOn.onEnter(() => callbacks.add('onEnter'));
+      m.isOn.onExit(() => callbacks.add('onExit'));
+      m.isOff.onEnter(() => callbacks.add('onEnter'));
+      m.isOff.onExit(() => callbacks.add('onExit'));
+      m.turnOn.onTrigger((_, _) => callbacks.add('onTrigger'));
+      m.turnOff.onTrigger((_, _) => callbacks.add('onTrigger'));
+
+      m.start(m.isOff);
+      m.turnOn();
+      m.turnOff();
+      m.turnOn();
+      m.turnOff();
+      m.stop();
+
+      expect(
+        callbacks,
+        orderedEquals([
+          // start
+          'onEnter',
+          'onChange',
+
+          // turn on/off x4
+          for (var i = 0; i < 4; i += 1) ...[
+            'onExit',
+            'onTrigger',
+            'onEnter',
+            'onChange',
+          ],
+
+          // stop
+          'onExit',
+          'onChange',
+        ]),
+      );
+    });
   });
 
   test('parameterization', () {
-    final m = Machine('switch');
-    final isOn = m.pstate<({String reason})>('on');
-    final isOff = m.pstate<({String reason})>('off');
-    final turnOn = m.ptransition('turn on', {isOff}, isOn);
-    final turnOff = m.ptransition('turn off', {isOn}, isOff);
-    m.initialize(isOff, (reason: ''));
-    m.start();
     String? lastOnReason;
     String? lastOffReason;
 
-    isOn.enter$.forEach((data) {
-      lastOnReason = data.reason;
-    });
-
-    isOff.enter$.forEach((data) {
-      lastOffReason = data.reason;
-    });
-
-    turnOn((reason: 'test 1'));
-    expect(lastOnReason, 'test 1');
-    turnOn((reason: 'test 2'));
-    expect(lastOnReason, 'test 1');
-    turnOff(((reason: 'test 3')));
-    expect(lastOffReason, 'test 3');
-  });
-
-  test('parameterized state data', () {
-    final m = Machine('switch');
+    final m = Machine();
     final isOn = m.pstate<({String reason})>('on');
     final isOff = m.pstate<({String reason})>('off');
-    final turnOn = m.ptransition('turn on', {isOff}, isOn);
+    final turnOn = m.ptransition({isOff}, isOn);
+    final turnOff = m.ptransition({isOn}, isOff);
 
-    m.initialize(isOff, (reason: 'sleeping'));
-    m.start();
+    isOn.onEnter((data) => lastOnReason = data.reason);
+    isOff.onEnter((data) => lastOffReason = data.reason);
 
-    expect(isOff.data.reason, 'sleeping');
-    expect(() => isOn.data, throwsStateError);
-    expect(turnOn((reason: 'woke up')), true);
-    expect(isOn.data.reason, 'woke up');
-    expect(() => isOff.data, throwsStateError);
+    expect(lastOnReason, isNull);
+    expect(lastOffReason, isNull);
+
+    m.pstart(isOff, (reason: 'a'));
+    expect(lastOnReason, isNull);
+    expect(lastOffReason, 'a');
+
+    turnOn((reason: 'b'));
+    expect(lastOnReason, 'b');
+    expect(lastOffReason, 'a');
+
+    turnOn((reason: 'c'));
+    expect(lastOnReason, 'b');
+    expect(lastOffReason, 'a');
+
+    turnOff(((reason: 'd')));
+    expect(lastOnReason, 'b');
+    expect(lastOffReason, 'd');
   });
 
-  test('state guard', () {
+  test('guards', () {
     final m = SwitchMachine();
-    m.start();
+    m.start(m.isOff);
 
     bool hasElectricity = false;
     m.isOn.guard(() => hasElectricity);
@@ -144,64 +228,43 @@ void main() {
     expect(m.isOn(), isTrue);
   });
 
-  test('transition guard', () {
-    final m = SwitchMachine();
-    m.start();
+  test('simple nested machine', () {
+    final generalLocation = Machine();
+    final atHome = generalLocation.state('at home');
+    final isOut = generalLocation.state('is out');
+    final goHome = generalLocation.transition({isOut}, atHome);
+    final goOut = generalLocation.transition({atHome}, isOut);
 
-    bool hasElectricity = false;
-    m.turnOn.guard(() => hasElectricity);
-    expect(m.turnOn(), isFalse);
-    expect(m.isOn(), isFalse);
+    final specificLocation = Machine();
+    final inKitchen = specificLocation.state('in the kitchen');
+    final inOffice = specificLocation.state('in the office');
+    // ignore: unused_local_variable
+    final goToKitchen = specificLocation.transition({inOffice}, inKitchen);
+    final goToOffice = specificLocation.transition({inKitchen}, inOffice);
 
-    hasElectricity = true;
-    expect(m.turnOn(), isTrue);
-    expect(m.isOn(), isTrue);
-  });
+    atHome.nest(specificLocation, () => .start(inKitchen));
+    generalLocation.start(isOut);
 
-  group('queue', () {
-    test('disabled', () {
-      final m = SwitchMachine();
-      m.start();
+    // Nested states inactive when parent not in 'atHome'.
+    expect(specificLocation.isStopped, isTrue);
 
-      expect(m.isOff(), isTrue);
-    });
+    // Transition to atHome activates nested machine.
+    goHome();
+    expect(atHome(), isTrue);
+    expect(inKitchen(), isTrue);
 
-    test('enabled', () {
-      final m = SwitchMachine(queue: true);
-      m.turnOn();
-      m.start();
+    // Nested transitions work.
+    goToOffice();
+    expect(atHome(), isTrue);
+    expect(inOffice(), isTrue);
 
-      expect(m.isOn(), isTrue);
-    });
-  });
+    // Leaving parent state stops nested machine.
+    goOut();
+    expect(isOut(), isTrue);
+    expect(specificLocation.isStopped, isTrue);
 
-  group('toString', () {
-    test('simple', () {
-      final m = SwitchMachine();
-
-      m.start();
-      expect(m.toString(), equals('off'));
-    });
-
-    test('nested', () {
-      final m = SwitchMachine();
-      final color = m.isOn.nest('color');
-      final isBlue = color.state('blue');
-      final isRed = color.state('red');
-      final toRed = color.transition('to red', {isBlue}, isRed);
-      color.initialize(isBlue);
-
-      m.start();
-      expect(m.toString(), equals('off'));
-
-      m.turnOn();
-      expect(m.toString(), equals('on -> blue'));
-
-      toRed();
-      expect(m.toString(), equals('on -> red'));
-
-      m.turnOff();
-      expect(m.toString(), equals('off'));
-    });
+    // Re-entering parent state restarts nested machine at initial state.
+    goHome();
+    expect(inKitchen(), isTrue);
   });
 }

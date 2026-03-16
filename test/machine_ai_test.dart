@@ -1,7 +1,7 @@
 // This file is completely written and managed by Claude Code.
 
 import 'package:test/test.dart';
-import 'package:yafsm/src/machine2.dart';
+import 'package:yafsm/src/machine.dart';
 
 void main() {
   //

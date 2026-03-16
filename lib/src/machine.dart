@@ -1,355 +1,317 @@
-import 'dart:async';
+//
+// Sentinels
+//
 
-/// Matches any machine state.
-final Set<MachineState> any = Set.unmodifiable({
-  SimpleMachineState._(
-    '__any__',
-    null,
-    internal: true,
-  )
-});
+final Set<State> any = .unmodifiable({SimpleState._(Machine(), 0, label: 'any')});
 
-/// The terminal machine state.
-final MachineState<void> _none = SimpleMachineState._(
-  '__none__',
-  null,
-  internal: true,
-);
+//
+// Machine
+//
 
-/// A nestable state machine implementation.
 class Machine {
-  /// This machine's name, primarily used for debugging.
-  final String name;
+  int _id = 1;
+  final Set<State> _states = {};
+  final Map<State, List<bool Function(dynamic)>> _guards = {};
+  final Map<State, List<(Machine, Ignition Function(dynamic))>> _children = {};
 
-  /// This machine's current state.
-  MachineState get current => _current;
+  (State, dynamic)? _current;
 
-  /// The machine's stream of state changes.
-  Stream<MachineState> get current$ => _currentController.stream;
+  final List<void Function(State?, State?)> _onChange = [];
+  final Map<State, List<void Function(dynamic)>> _onEnter = {};
+  final Map<State, List<void Function(dynamic)>> _onExit = {};
+  final Map<Transition, List<void Function(State)>> _onTrigger = {};
 
-  /// Whether or not this machine has been initialized yet.
-  bool get isInitialized => _initial != null;
+  bool get isRunning => _current != null;
+  bool get isStopped => _current == null;
 
-  /// Whether or not this machine is currently running.
-  bool get isRunning => current != _none;
-
-  /// The machine's initial state and data.
-  MachineState? _initial;
-  dynamic _initialData;
-
-  /// All states creates by this machine.
-  final _states = <MachineState>{};
-
-  /// Whether or not this machine will queue up pending operations when not in operation.
-  final bool queue;
-
-  /// Pending operations for this machine.
-  final _pending = <(MachineTransition, dynamic data)>[];
-
-  /// The current state.
-  MachineState _current = _none;
-
-  /// Stream controller for the current state.
-  final _currentController = StreamController<MachineState>.broadcast(sync: true);
-
-  /// Creates a new machine with the given [name].
-  Machine(
-    this.name, {
-    this.queue = false,
-  });
-
-  /// Sets this machine's initial state to [state], with some [data] for parameterized states.
-  ///
-  /// The machine must first [start] to see that state.
-  void initialize<D>(MachineState<D> state, [D? data]) {
-    assert(_states.contains(state), 'Initial state must be a known state.');
-    assert(data is D, 'Invalid data for initial state.');
-    _initial = state;
-    _initialData = data;
-  }
-
-  /// Makes a new simple (void) state for this machine.
-  ///
-  /// Simple state transitions are created with [transition].
-  SimpleMachineState state(String name) {
-    final state = SimpleMachineState._(name, this);
-    _states.add(state);
-    return state;
-  }
-
-  /// Makes a new parameterized state for this machine.
-  ///
-  /// Parameterized state transitions are created with [ptransition].
-  ParameterizedMachineState<D> pstate<D>(String name) {
-    final state = ParameterizedMachineState<D>._(name, this);
-    _states.add(state);
-    return state;
-  }
-
-  /// Makes a new, simple transition for this machine.
-  SimpleMachineTransition transition(
-    String name,
-    Set<MachineState> from,
-    SimpleMachineState to,
-  ) {
-    return SimpleMachineTransition._(name, from, to, this);
-  }
-
-  /// Makes a new, parameterized transition for this machine.
-  ParameterizedMachineTransition<D> ptransition<D>(
-    String name,
-    Set<MachineState> from,
-    ParameterizedMachineState<D> to,
-  ) {
-    return ParameterizedMachineTransition._(name, from, to, this);
-  }
-
-  /// Starts the machine, processing all pending events.
-  void start() {
-    assert(_initial != null, 'You must supply an initial state with [initialize] first.');
-    _transition(_initial!, _initialData);
-
-    for (final (transition, data) in _pending) {
-      _trigger(transition, data);
+  State get current {
+    if (isStopped) {
+      throw StateError('The machine is not running yet.');
     }
 
-    _pending.clear();
+    return _current!.$1;
   }
 
-  /// Stops the machine.
+  void start(SimpleState state) {
+    if (isRunning) {
+      throw StateError('The machine is already running.');
+    }
+
+    _enter(null, state, null);
+
+    for (final fn in _onChange) {
+      fn(null, state);
+    }
+  }
+
+  void pstart<T, S extends ParameterizedState<T>>(S state, T data) {
+    if (isRunning) {
+      throw StateError('The machine is already running.');
+    }
+
+    _enter(null, state, data);
+
+    for (final fn in _onChange) {
+      fn(null, state);
+    }
+  }
+
   void stop() {
-    _transition(_none, null);
-  }
+    if (isStopped) return;
+    final previous = current;
+    _exit(null);
 
-  /// Disposes this machine.
-  void dispose() {
-    stop();
-    _currentController.close();
-
-    for (final state in _states) {
-      state.dispose();
+    for (final fn in _onChange) {
+      fn(previous, null);
     }
   }
 
-  @override
-  String toString() {
-    final machines = current._submachines;
-
-    if (machines.isNotEmpty) {
-      return '$current -> ${machines.join(',')}';
-    } else {
-      return current.toString();
-    }
+  SimpleState state([String? label]) {
+    final state = SimpleState._(this, _id++, label: label);
+    _states.add(state);
+    return state;
   }
 
-  bool _trigger(MachineTransition transition, dynamic data) {
-    // Store transitions that come in before the machine has started.
-    if (!isRunning) {
-      if (queue) {
-        _pending.add((transition, data));
-      }
+  ParameterizedState<T> pstate<T>([String? label]) {
+    final state = ParameterizedState<T>._(this, _id++, label: label);
+    _states.add(state);
+    return state;
+  }
 
-      return false;
-    }
+  SimpleTransition transition(Set<State> from, SimpleState to, [String? label]) {
+    assert(identical(from, any) || from.every(_states.contains), 'Unknown `from` state.');
+    assert(_states.contains(to), 'Unknown `to` state.');
+    return SimpleTransition._(this, from: from, to: to, label: label);
+  }
 
-    // Throw out transitions that cannot be performed given the current state.
-    if (!(transition.from.contains(current) || transition.from == any)) {
-      return false;
-    }
+  ParameterizedTransition<T> ptransition<T>(Set<State> from, ParameterizedState<T> to, [String? label]) {
+    assert(identical(from, any) || from.every(_states.contains), 'Unknown `from` state.');
+    assert(_states.contains(to), 'Unknown `to` state.');
+    return ParameterizedTransition._(this, from: from, to: to, label: label);
+  }
 
-    // Throw out the trigger if rejected by a transition or state guard.
-    if (transition._guards.any((guard) => !guard(data)) || //
-        transition.to._guards.any((guard) => !guard(data))) {
-      return false;
-    }
-
-    _transition(transition.to, data);
+  bool _attempt(Transition transition, dynamic data) {
+    if (!isRunning) return false;
+    if (!(transition.from.contains(current) || identical(transition.from, any))) return false;
+    final next = transition.to;
+    if (!(_guards[next]?.every((test) => test(data)) ?? true)) return false;
+    _apply(transition, next, data);
     return true;
   }
 
-  void _transition(MachineState next, dynamic data) {
-    _current._onExit();
-    _current = next;
-    _currentController.add(next);
-    next._onEnter(data);
-  }
-}
+  void _apply(Transition? transition, State next, dynamic data) {
+    final previous = current;
+    _exit(transition);
+    _enter(transition, next, data);
 
-typedef Guard<D> = bool Function(D data);
-typedef SimpleGuard = bool Function();
-
-/// A single machine state, which may contain nested state machines.
-sealed class MachineState<D> {
-  /// The name of this state.
-  final String name;
-
-  /// Stream of enter events, with their accompanying data.
-  Stream<D> get enter$ => _enterController.stream;
-
-  /// Stream of exit events.
-  Stream<void> get exit$ => _exitController.stream;
-
-  /// The machine that owns this state.
-  final Machine? _machine;
-
-  /// Any machines nested inside this state.
-  final _submachines = <Machine>[];
-
-  /// Any guards for this state.
-  final _guards = <Guard>[];
-
-  /// Controller for enter events.
-  final _enterController = StreamController<D>.broadcast(sync: true);
-
-  /// Controller for exit events.
-  final _exitController = StreamController<void>.broadcast(sync: true);
-
-  MachineState(
-    this.name,
-    this._machine, {
-    bool internal = false,
-  })  : assert(internal || name != '__any__', '"__any__" is a reserved state name.'),
-        assert(internal || name != '__none__', '"__none__" is a reserved state name.');
-
-  /// Returns true if this state is active, false otherwise.
-  bool call() {
-    return _machine?.current == this;
+    for (final fn in _onChange) {
+      fn(previous, next);
+    }
   }
 
-  /// Makes a new, nested machine inside this state.
-  Machine nest(
-    String name, {
-    bool queue = false,
-  }) {
-    final machine = Machine(name, queue: queue);
-    _submachines.add(machine);
-    return machine;
+  void _exit(Transition? transition) {
+    final state = _current!.$1;
+
+    for (final fn in _onExit[state] ?? const <void Function(dynamic)>[]) {
+      fn(_current?.$2);
+    }
+
+    for (final (child, _) in _children[state] ?? const <(Machine, void Function(Machine))>[]) {
+      child.stop();
+    }
+
+    if (transition != null) {
+      for (final fn in _onTrigger[transition] ?? const <void Function(State)>[]) {
+        fn(state);
+      }
+    }
+
+    _current = null;
+  }
+
+  void _enter(Transition? transition, State next, dynamic data) {
+    _current = (next, data);
+
+    for (final fn in _onEnter[next] ?? const <void Function(dynamic)>[]) {
+      fn(data);
+    }
+
+    for (final (child, ignition) in _children[next] ?? const <(Machine, Ignition Function(dynamic))>[]) {
+      ignition(data)._start(child);
+    }
   }
 
   @override
-  String toString() {
-    return name;
-  }
+  String toString() => '[${_describe()}]';
 
-  /// Disposes this state.
-  void dispose() {
-    _enterController.close();
-    _exitController.close();
+  String _describe() {
+    if (isStopped) return '';
 
-    for (final machine in _submachines) {
-      machine.dispose();
-    }
-  }
+    final children = _children[current] ?? const [];
+    final running = [
+      for (final (child, _) in children) //
+        child._describe(),
+    ];
 
-  void _onEnter(D data) {
-    _enterController.add(data);
-
-    for (final machine in _submachines) {
-      machine.start();
-    }
-  }
-
-  void _onExit() {
-    for (final machine in _submachines) {
-      machine.stop();
-    }
-
-    _exitController.add(null);
+    if (running.isEmpty) return '$current';
+    return '$current [${running.join(', ')}]';
   }
 }
 
-/// A machine state without parameters.
-class SimpleMachineState extends MachineState<void> {
-  SimpleMachineState._(super.name, super.machine, {super.internal});
+//
+// States
+//
 
-  /// Guards entry to this state using the given test.
-  void guard(SimpleGuard test) {
-    _guards.add((_) => test());
-  }
+sealed class State {
+  const State(this._parent, this.id, {this.label});
+
+  final Machine _parent;
+  final int id;
+  final String? label;
+
+  bool call() => identical(this, _parent.current);
+
+  @override
+  String toString() => label ?? 'state#$id';
 }
 
-/// A machine state with parameterized data.
-class ParameterizedMachineState<D> extends MachineState<D> {
-  D? _data;
+class SimpleState extends State {
+  const SimpleState._(super._parent, super.id, {super.label});
+}
 
-  D get data {
+class ParameterizedState<T> extends State {
+  const ParameterizedState._(super.parent, super.id, {super.label});
+
+  T get data {
     if (!call()) {
-      throw StateError('Cannot retrieve state data unless the state is active.');
+      throw StateError('This state is not active.');
     }
 
-    return _data!;
-  }
-
-  ParameterizedMachineState._(super.name, super.machine, {super.internal});
-
-  /// Guards entry to this state using the given test.
-  void guard(Guard<D> test) {
-    _guards.add((data) => test(data as D));
-  }
-
-  @override
-  void _onEnter(D data) {
-    _data = data;
-    super._onEnter(data);
-  }
-
-  @override
-  void _onExit() {
-    super._onExit();
-    _data = null;
+    return _parent._current!.$2 as T;
   }
 }
 
-/// A transition from a set of states to a target state.
-///
-/// Call the transition to trigger it.
-sealed class MachineTransition<D> {
-  final String name;
-  final Set<MachineState> from;
-  final MachineState<D> to;
-  final Machine _machine;
-  final _guards = <Guard>[];
+//
+// Transitions
+//
 
-  MachineTransition(this.name, this.from, this.to, this._machine)
-      : assert(from == any || _machine._states.containsAll(from), 'All "from" states must be known.'),
-        assert(to == _none || _machine._states.contains(to), 'The "to" state must be known.');
+sealed class Transition<S extends State> {
+  const Transition(
+    this._parent, {
+    required this.from,
+    required this.to,
+    this.label,
+  });
 
-  @override
-  String toString() {
-    return '${_machine.name}.$name';
-  }
-
-  /// Attempt to perform this transition with the given data.
-  ///
-  /// If the machine has not started yet, the transition will be enqueued.
-  ///
-  /// Returns true if triggered successfully, false otherwise.
-  bool call(D data) {
-    return _machine._trigger(this, data);
-  }
+  final Machine _parent;
+  final Set<State> from;
+  final S to;
+  final String? label;
 }
 
-/// A transition to a parameter-less state.
-class SimpleMachineTransition extends MachineTransition<void> {
-  SimpleMachineTransition._(super.name, super.from, super.to, super.machine);
+class SimpleTransition extends Transition<SimpleState> {
+  const SimpleTransition._(
+    super._parent, {
+    required super.from,
+    required super.to,
+    super.label,
+  });
 
-  @override
-  bool call([void data]) {
-    return _machine._trigger(this, null);
-  }
-
-  /// Guards acceptance of this transition using the given test.
-  void guard(SimpleGuard test) {
-    _guards.add((_) => test());
-  }
+  bool call() => _parent._attempt(this, null);
 }
 
-/// A transition to a parameterized state.
-class ParameterizedMachineTransition<D> extends MachineTransition<D> {
-  ParameterizedMachineTransition._(super.name, super.from, super.to, super.machine);
+class ParameterizedTransition<T> extends Transition<ParameterizedState<T>> {
+  const ParameterizedTransition._(
+    super._parent, {
+    required super.from,
+    required super.to,
+    String? label,
+  });
 
-  /// Guards acceptance of this transition using the given test.
-  void guard(Guard<D> test) {
-    _guards.add((data) => test(data as D));
-  }
+  bool call(T data) => _parent._attempt(this, data);
+}
+
+//
+// Callbacks
+//
+
+extension MachineCallbacks on Machine {
+  void onChange(void Function(State? previous, State? next) fn) => _onChange.add(fn);
+}
+
+extension SimpleStateCallbacks on SimpleState {
+  void onEnter(void Function() fn) => //
+      (_parent._onEnter[this] ??= []).add((_) => fn());
+
+  void onExit(void Function() fn) => //
+      (_parent._onExit[this] ??= []).add((_) => fn());
+}
+
+extension ParameterizedStateCallbacks<T> on ParameterizedState<T> {
+  void onEnter(void Function(T data) fn) => //
+      (_parent._onEnter[this] ??= []).add((data) => fn(data as T));
+
+  void onExit(void Function(T data) fn) => //
+      (_parent._onExit[this] ??= []).add((data) => fn(data as T));
+}
+
+extension TransitionCallbacks<S extends State> on Transition<S> {
+  void onTrigger(void Function(State previous, S next) fn) => //
+      (_parent._onTrigger[this] ??= []).add((previous) => fn(previous, to));
+}
+
+//
+// Guards
+//
+
+extension SimpleStateGuards on SimpleState {
+  void guard(bool Function() test) => //
+      (_parent._guards[this] ??= []).add((_) => test());
+}
+
+extension ParameterizedStateGuards<T> on ParameterizedState<T> {
+  void guard(bool Function(T data) test) => //
+      (_parent._guards[this] ??= []).add((data) => test(data as T));
+}
+
+//
+// Nesting
+//
+
+sealed class Ignition {
+  static const start = SimpleStateIgnition._;
+  static const pstart = ParameterizedStateIgnition._;
+
+  const Ignition();
+
+  void _start(Machine machine);
+}
+
+class SimpleStateIgnition extends Ignition {
+  const SimpleStateIgnition._(this.state);
+
+  final SimpleState state;
+
+  @override
+  void _start(Machine machine) => machine.start(state);
+}
+
+class ParameterizedStateIgnition<T> extends Ignition {
+  const ParameterizedStateIgnition._(this.state, this.data);
+
+  final ParameterizedState<T> state;
+  final T data;
+
+  @override
+  void _start(Machine machine) => machine.pstart(state, data);
+}
+
+extension SimpleStateNesting on SimpleState {
+  void nest(Machine child, Ignition Function() start) => //
+      (_parent._children[this] ??= []).add((child, (_) => start()));
+}
+
+extension ParameterizedStateNesting<T> on ParameterizedState<T> {
+  void nest(Machine child, Ignition Function(T data) start) => //
+      (_parent._children[this] ??= []).add((child, (data) => start(data as T)));
 }
