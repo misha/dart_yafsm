@@ -16,7 +16,7 @@ class Machine {
 
   (State, dynamic)? _current;
 
-  final List<void Function(State?, State)> _onChange = [];
+  final List<void Function(State?, State?)> _onChange = [];
   final Map<State, List<void Function(dynamic)>> _onEnter = {};
   final Map<State, List<void Function(dynamic)>> _onExit = {};
   final Map<Transition, List<void Function(State)>> _onTrigger = {};
@@ -37,7 +37,11 @@ class Machine {
       throw StateError('The machine is already running.');
     }
 
-    _enter(null, null, state, null);
+    _enter(null, state, null);
+
+    for (final fn in _onChange) {
+      fn(null, state);
+    }
   }
 
   void pstart<T, S extends ParameterizedState<T>>(S state, T data) {
@@ -45,12 +49,21 @@ class Machine {
       throw StateError('The machine is already running.');
     }
 
-    _enter(null, null, state, data);
+    _enter(null, state, data);
+
+    for (final fn in _onChange) {
+      fn(null, state);
+    }
   }
 
   void stop() {
     if (isRunning) {
+      final previous = current;
       _exit(null);
+
+      for (final fn in _onChange) {
+        fn(previous, null);
+      }
     }
   }
 
@@ -100,9 +113,14 @@ class Machine {
   }
 
   void _apply(Transition? transition, State next, dynamic data) {
-    final previous = _current?.$1;
+    final previous = current;
+
     _exit(transition);
-    _enter(transition, previous, next, data);
+    _enter(transition, next, data);
+
+    for (final fn in _onChange) {
+      fn(previous, next);
+    }
   }
 
   void _exit(Transition? transition) {
@@ -125,12 +143,8 @@ class Machine {
     _current = null;
   }
 
-  void _enter(Transition? transition, State? previous, State next, dynamic data) {
+  void _enter(Transition? transition, State next, dynamic data) {
     _current = (next, data);
-
-    for (final fn in _onChange) {
-      fn(previous, next);
-    }
 
     for (final fn in _onEnter[next] ?? const <void Function(dynamic)>[]) {
       fn(data);
@@ -220,7 +234,7 @@ class ParameterizedTransition<T> extends Transition<ParameterizedState<T>> {
 //
 
 extension MachineCallbacks on Machine {
-  void onChange(void Function(State? previous, State next) fn) => _onChange.add(fn);
+  void onChange(void Function(State? previous, State? next) fn) => _onChange.add(fn);
 }
 
 extension SimpleStateCallbacks on SimpleState {

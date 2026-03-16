@@ -42,7 +42,7 @@ void main() {
 
   group('callbacks', () {
     test('onChange', () {
-      final changes = <(State?, State)>[];
+      final changes = <(State?, State?)>[];
       final m = SwitchMachine();
       m.onChange((previous, next) => changes.add((previous, next)));
 
@@ -51,6 +51,7 @@ void main() {
       m.turnOff();
       m.turnOn();
       m.turnOff();
+      m.stop();
 
       expect(
         changes,
@@ -60,6 +61,7 @@ void main() {
           (m.isOn, m.isOff),
           (m.isOff, m.isOn),
           (m.isOn, m.isOff),
+          (m.isOff, null),
         ]),
       );
     });
@@ -99,6 +101,19 @@ void main() {
           m.isOn,
         ]),
       );
+
+      m.stop();
+
+      expect(
+        exits,
+        orderedEquals([
+          m.isOff,
+          m.isOn,
+          m.isOff,
+          m.isOn,
+          m.isOff,
+        ]),
+      );
     });
 
     test('onTrigger', () {
@@ -112,6 +127,7 @@ void main() {
       m.turnOff();
       m.turnOn();
       m.turnOff();
+      m.stop();
 
       expect(
         triggers,
@@ -120,6 +136,46 @@ void main() {
           (m.isOn, m.isOff),
           (m.isOff, m.isOn),
           (m.isOn, m.isOff),
+        ]),
+      );
+    });
+
+    test('order', () {
+      final callbacks = <String>[];
+      final m = SwitchMachine();
+      m.onChange((_, _) => callbacks.add('onChange'));
+      m.isOn.onEnter(() => callbacks.add('onEnter'));
+      m.isOn.onExit(() => callbacks.add('onExit'));
+      m.isOff.onEnter(() => callbacks.add('onEnter'));
+      m.isOff.onExit(() => callbacks.add('onExit'));
+      m.turnOn.onTrigger((_, _) => callbacks.add('onTrigger'));
+      m.turnOff.onTrigger((_, _) => callbacks.add('onTrigger'));
+
+      m.start(m.isOff);
+      m.turnOn();
+      m.turnOff();
+      m.turnOn();
+      m.turnOff();
+      m.stop();
+
+      expect(
+        callbacks,
+        orderedEquals([
+          // start
+          'onEnter',
+          'onChange',
+
+          // turn on/off x4
+          for (var i = 0; i < 4; i += 1) ...[
+            'onExit',
+            'onTrigger',
+            'onEnter',
+            'onChange',
+          ],
+
+          // stop
+          'onExit',
+          'onChange',
         ]),
       );
     });
