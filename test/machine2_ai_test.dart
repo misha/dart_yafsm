@@ -158,13 +158,14 @@ void main() {
 
     a.onEnter(() => log.add('enter'));
     a.onExit(() => log.add('exit'));
+    m.onChange((_, __) => log.add('change'));
 
     m.start(a);
     log.clear();
 
     expect(loop(), isTrue);
     expect(a(), isTrue);
-    expect(log, orderedEquals(['exit', 'enter']));
+    expect(log, orderedEquals(['exit', 'enter', 'change']));
   });
 
   test('any wildcard transition', () {
@@ -335,7 +336,7 @@ void main() {
   //
 
   test('onChange fires on start', () {
-    final changes = <(State?, State)>[];
+    final changes = <(State?, State?)>[];
     final m = Machine();
     final a = m.state();
     m.onChange((prev, next) => changes.add((prev, next)));
@@ -371,14 +372,15 @@ void main() {
   // Callbacks — onEnter / onExit
   //
 
-  test('onEnter fires on start', () {
-    var entered = false;
+  test('onEnter fires on start before onChange', () {
+    final log = <String>[];
     final m = Machine();
     final a = m.state();
-    a.onEnter(() => entered = true);
+    a.onEnter(() => log.add('enter'));
+    m.onChange((_, __) => log.add('change'));
 
     m.start(a);
-    expect(entered, isTrue);
+    expect(log, orderedEquals(['enter', 'change']));
   });
 
   test('onExit does not fire on start', () {
@@ -391,23 +393,26 @@ void main() {
     expect(exited, isFalse);
   });
 
-  test('onExit fires on stop', () {
-    var exited = false;
+  test('onExit fires on stop before onChange', () {
+    final log = <String>[];
     final m = Machine();
     final a = m.state();
-    a.onExit(() => exited = true);
+    a.onExit(() => log.add('exit'));
+    m.onChange((_, __) => log.add('change'));
 
     m.start(a);
+    log.clear();
+
     m.stop();
-    expect(exited, isTrue);
+    expect(log, orderedEquals(['exit', 'change']));
   });
 
-  test('onEnter fires before onExit on transition', () {
+  test('onExit fires before onEnter on transition', () {
     final log = <String>[];
     final m = Machine();
     final a = m.state();
     final b = m.state();
-    m.transition({a}, b);
+    final go = m.transition({a}, b);
 
     a.onExit(() => log.add('exit a'));
     b.onEnter(() => log.add('enter b'));
@@ -415,7 +420,7 @@ void main() {
     m.start(a);
     log.clear();
 
-    m.transition({a}, b)();
+    go();
     expect(log, orderedEquals(['exit a', 'enter b']));
   });
 
@@ -500,7 +505,7 @@ void main() {
   // Full callback ordering
   //
 
-  test('full callback order: onExit, child stop, onTrigger, onChange, onEnter, child start', () {
+  test('full callback order: onExit, child stop, onTrigger, onEnter, child start, onChange', () {
     final log = <String>[];
     final parent = Machine();
     final a = parent.state('a');
@@ -533,9 +538,9 @@ void main() {
         'exit a',
         'child a stop',
         'trigger',
-        'change',
         'enter b',
         'child b start',
+        'change',
       ]),
     );
   });
@@ -761,5 +766,133 @@ void main() {
     expect(a.label, 'alpha');
     expect(b.label, isNull);
     expect(go.label, 'go');
+  });
+
+  //
+  // State.call() when stopped
+  //
+
+  test('state call throws when machine is stopped', () {
+    final m = Machine();
+    final a = m.state();
+    expect(() => a(), throwsStateError);
+  });
+
+  test('state call throws after machine is stopped', () {
+    final m = Machine();
+    final a = m.state();
+    m.start(a);
+    expect(a(), isTrue);
+    m.stop();
+    expect(() => a(), throwsStateError);
+  });
+
+  //
+  // onChange fires on stop with (previous, null)
+  //
+
+  test('onChange fires on stop with null next', () {
+    final changes = <(State?, State?)>[];
+    final m = Machine();
+    final a = m.state();
+    m.onChange((prev, next) => changes.add((prev, next)));
+
+    m.start(a);
+    changes.clear();
+
+    m.stop();
+    expect(changes, [(a, null)]);
+  });
+
+  //
+  // toString
+  //
+
+  test('labeled state toString returns label', () {
+    final m = Machine();
+    final a = m.state('hello');
+    expect(a.toString(), 'hello');
+  });
+
+  test('unlabeled state toString returns state#id', () {
+    final m = Machine();
+    final a = m.state();
+    expect(a.toString(), 'state#${a.id}');
+  });
+
+  //
+  // State IDs
+  //
+
+  test('state IDs are monotonically increasing', () {
+    final m = Machine();
+    final a = m.state();
+    final b = m.state();
+    final c = m.state();
+    expect(a.id, lessThan(b.id));
+    expect(b.id, lessThan(c.id));
+  });
+
+  //
+  // Transition from/to field access
+  //
+
+  test('transition exposes from set and to state', () {
+    final m = Machine();
+    final a = m.state();
+    final b = m.state();
+    final go = m.transition({a}, b);
+
+    expect(go.from, contains(a));
+    expect(go.to, same(b));
+  });
+
+  test('any transition exposes any sentinel as from', () {
+    final m = Machine();
+    final a = m.state();
+    final reset = m.transition(any, a);
+
+    expect(identical(reset.from, any), isTrue);
+  });
+
+  //
+  // Nested child onExit fires when parent transitions away
+  //
+
+  test('nested child onExit callback fires when parent leaves state', () {
+    final log = <String>[];
+    final parent = Machine();
+    final a = parent.state();
+    final b = parent.state();
+    final go = parent.transition({a}, b);
+
+    final child = Machine();
+    final c1 = child.state();
+    c1.onExit(() => log.add('child exit'));
+    a.nest(child, () => .start(c1));
+
+    parent.start(a);
+    expect(child.isRunning, isTrue);
+    log.clear();
+
+    go();
+    expect(log, contains('child exit'));
+  });
+
+  //
+  // Nesting with Ignition.pstart
+  //
+
+  test('nest with pstart ignition', () {
+    final parent = Machine();
+    final a = parent.state();
+
+    final child = Machine();
+    final loaded = child.pstate<int>();
+    a.nest(child, () => .pstart(loaded, 42));
+
+    parent.start(a);
+    expect(loaded(), isTrue);
+    expect(loaded.data, 42);
   });
 }
