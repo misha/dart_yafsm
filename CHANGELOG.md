@@ -8,6 +8,7 @@
 - States may now have any number of nested machines.
 - Nested machines are now completely separate. For the class-based style, they must be a different class. This allows them to be reused multiple times.
 - Nested machines may now dynamically determine their initial state, including based on data in root state, if parameterized.
+- Machine `toString` has been redesigned to account for potentially multiple nested machines.
 - Instructed Claude Code to test extensively the entire new implementation. AI-generated tests are isolated in separate files.
 
 ## 1.1.1
