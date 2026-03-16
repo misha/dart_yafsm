@@ -2,13 +2,14 @@
 // Sentinels
 //
 
-final Set<State> any = .unmodifiable({SimpleState._(Machine(), label: 'any')});
+final Set<State> any = .unmodifiable({SimpleState._(Machine(), 0, label: 'any')});
 
 //
 // Machine
 //
 
 class Machine {
+  int _id = 1;
   final Set<State> _states = {};
   final Map<State, List<bool Function(dynamic)>> _guards = {};
   final Map<State, List<(Machine, Ignition Function(dynamic))>> _children = {};
@@ -49,18 +50,18 @@ class Machine {
 
   void stop() {
     if (isRunning) {
-      _exit(null, current, null);
+      _exit(null);
     }
   }
 
   SimpleState state([String? label]) {
-    final state = SimpleState._(this, label: label);
+    final state = SimpleState._(this, _id++, label: label);
     _states.add(state);
     return state;
   }
 
   ParameterizedState<T> pstate<T>([String? label]) {
-    final state = ParameterizedState<T>._(this, label: label);
+    final state = ParameterizedState<T>._(this, _id++, label: label);
     _states.add(state);
     return state;
   }
@@ -94,27 +95,30 @@ class Machine {
       }
     }
 
-    _apply(transition, _current?.$1, next, data);
+    _apply(transition, next, data);
     return true;
   }
 
-  void _apply(Transition? transition, State? previous, State next, dynamic data) {
-    _exit(transition, previous, data);
+  void _apply(Transition? transition, State next, dynamic data) {
+    final previous = _current?.$1;
+    _exit(transition);
     _enter(transition, previous, next, data);
   }
 
-  void _exit(Transition? transition, State? previous, dynamic data) {
-    for (final fn in _onExit[previous] ?? const <void Function(dynamic)>[]) {
-      fn(data);
+  void _exit(Transition? transition) {
+    final state = _current!.$1;
+
+    for (final fn in _onExit[state] ?? const <void Function(dynamic)>[]) {
+      fn(_current?.$2);
     }
 
-    for (final (child, _) in _children[previous] ?? const <(Machine, void Function(Machine))>[]) {
+    for (final (child, _) in _children[state] ?? const <(Machine, void Function(Machine))>[]) {
       child.stop();
     }
 
     if (transition != null) {
       for (final fn in _onTrigger[transition] ?? const <void Function(State)>[]) {
-        fn(previous!);
+        fn(state);
       }
     }
 
@@ -143,20 +147,24 @@ class Machine {
 //
 
 sealed class State {
-  const State(this._parent, {this.label});
+  const State(this._parent, this.id, {this.label});
 
   final Machine _parent;
+  final int id;
   final String? label;
 
   bool call() => identical(this, _parent.current);
+
+  @override
+  String toString() => label ?? 'state#$id';
 }
 
 class SimpleState extends State {
-  const SimpleState._(super._parent, {super.label});
+  const SimpleState._(super._parent, super.id, {super.label});
 }
 
 class ParameterizedState<T> extends State {
-  const ParameterizedState._(super.parent, {super.label});
+  const ParameterizedState._(super.parent, super.id, {super.label});
 
   T get data {
     if (!call()) {
