@@ -307,11 +307,11 @@ class ParameterizedStateIgnition<T> extends Ignition {
 }
 
 extension SimpleStateNesting on SimpleState {
-  void nest(Machine child, Ignition Function() start) => //
-      (_parent._children[this] ??= []).add((child, (_) => start()));
+  void nest(Machine machine, Ignition Function() start) => //
+      (_parent._children[this] ??= []).add((machine, (_) => start()));
 }
 
 extension ParameterizedStateNesting<T> on ParameterizedState<T> {
-  void nest(Machine child, Ignition Function(T data) start) => //
-      (_parent._children[this] ??= []).add((child, (data) => start(data as T)));
+  void nest(Machine machine, Ignition Function(T data) start) => //
+      (_parent._children[this] ??= []).add((machine, (data) => start(data as T)));
 }
