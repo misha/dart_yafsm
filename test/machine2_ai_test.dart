@@ -895,4 +895,158 @@ void main() {
     expect(loaded(), isTrue);
     expect(loaded.data, 42);
   });
+
+  //
+  // Machine.toString()
+  //
+
+  group('toString', () {
+    test('stopped machine', () {
+      final m = Machine();
+      m.state('a');
+      expect(m.toString(), '[]');
+    });
+
+    test('running machine with no children', () {
+      final m = Machine();
+      final a = m.state('a');
+      m.start(a);
+      expect(m.toString(), '[a]');
+    });
+
+    test('running machine uses state label', () {
+      final m = Machine();
+      final a = m.state('hello');
+      m.start(a);
+      expect(m.toString(), '[hello]');
+    });
+
+    test('running machine with unlabeled state', () {
+      final m = Machine();
+      final a = m.state();
+      m.start(a);
+      expect(m.toString(), '[state#${a.id}]');
+    });
+
+    test('single nested child', () {
+      final parent = Machine();
+      final a = parent.state('a');
+
+      final child = Machine();
+      final x = child.state('x');
+      a.nest(child, () => .start(x));
+
+      parent.start(a);
+      expect(parent.toString(), '[a [x]]');
+    });
+
+    test('multiple nested children', () {
+      final parent = Machine();
+      final a = parent.state('a');
+
+      final child1 = Machine();
+      final x = child1.state('x');
+      final child2 = Machine();
+      final y = child2.state('y');
+
+      a.nest(child1, () => .start(x));
+      a.nest(child2, () => .start(y));
+
+      parent.start(a);
+      expect(parent.toString(), '[a [x, y]]');
+    });
+
+    test('deeply nested (3 levels)', () {
+      final top = Machine();
+      final a = top.state('a');
+
+      final mid = Machine();
+      final b = mid.state('b');
+
+      final bottom = Machine();
+      final c = bottom.state('c');
+
+      a.nest(mid, () => .start(b));
+      b.nest(bottom, () => .start(c));
+
+      top.start(a);
+      expect(top.toString(), '[a [b [c]]]');
+    });
+
+    test('toString updates after transition', () {
+      final m = Machine();
+      final a = m.state('a');
+      final b = m.state('b');
+      final go = m.transition({a}, b);
+
+      m.start(a);
+      expect(m.toString(), '[a]');
+
+      go();
+      expect(m.toString(), '[b]');
+    });
+
+    test('toString updates when nested machine transitions', () {
+      final parent = Machine();
+      final a = parent.state('a');
+
+      final child = Machine();
+      final x = child.state('x');
+      final y = child.state('y');
+      final advance = child.transition({x}, y);
+
+      a.nest(child, () => .start(x));
+
+      parent.start(a);
+      expect(parent.toString(), '[a [x]]');
+
+      advance();
+      expect(parent.toString(), '[a [y]]');
+    });
+
+    test('toString after parent leaves nested state', () {
+      final parent = Machine();
+      final a = parent.state('a');
+      final b = parent.state('b');
+      final go = parent.transition({a}, b);
+
+      final child = Machine();
+      final x = child.state('x');
+      a.nest(child, () => .start(x));
+
+      parent.start(a);
+      expect(parent.toString(), '[a [x]]');
+
+      go();
+      expect(parent.toString(), '[b]');
+    });
+
+    test('toString after stop', () {
+      final m = Machine();
+      final a = m.state('a');
+      m.start(a);
+      m.stop();
+      expect(m.toString(), '[]');
+    });
+
+    test('mixed nesting: one child with sub-children, one without', () {
+      final top = Machine();
+      final a = top.state('root');
+
+      final child1 = Machine();
+      final leaf = child1.state('leaf');
+
+      final child2 = Machine();
+      final branch = child2.state('branch');
+      final grandchild = Machine();
+      final deep = grandchild.state('deep');
+      branch.nest(grandchild, () => .start(deep));
+
+      a.nest(child1, () => .start(leaf));
+      a.nest(child2, () => .start(branch));
+
+      top.start(a);
+      expect(top.toString(), '[root [leaf, branch [deep]]]');
+    });
+  });
 }

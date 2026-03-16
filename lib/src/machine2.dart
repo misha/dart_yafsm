@@ -57,13 +57,12 @@ class Machine {
   }
 
   void stop() {
-    if (isRunning) {
-      final previous = current;
-      _exit(null);
+    if (isStopped) return;
+    final previous = current;
+    _exit(null);
 
-      for (final fn in _onChange) {
-        fn(previous, null);
-      }
+    for (final fn in _onChange) {
+      fn(previous, null);
     }
   }
 
@@ -92,29 +91,16 @@ class Machine {
   }
 
   bool _attempt(Transition transition, dynamic data) {
-    if (!isRunning) {
-      return false;
-    }
-
-    if (!(transition.from.contains(current) || identical(transition.from, any))) {
-      return false;
-    }
-
+    if (!isRunning) return false;
+    if (!(transition.from.contains(current) || identical(transition.from, any))) return false;
     final next = transition.to;
-
-    for (final guard in _guards[next] ?? const <bool Function(dynamic)>[]) {
-      if (!guard(data)) {
-        return false;
-      }
-    }
-
+    if (!(_guards[next]?.every((test) => test(data)) ?? true)) return false;
     _apply(transition, next, data);
     return true;
   }
 
   void _apply(Transition? transition, State next, dynamic data) {
     final previous = current;
-
     _exit(transition);
     _enter(transition, next, data);
 
@@ -153,6 +139,22 @@ class Machine {
     for (final (child, ignition) in _children[next] ?? const <(Machine, Ignition Function(dynamic))>[]) {
       ignition(data)._start(child);
     }
+  }
+
+  @override
+  String toString() => '[${_describe()}]';
+
+  String _describe() {
+    if (isStopped) return '';
+
+    final children = _children[current] ?? const [];
+    final running = [
+      for (final (child, _) in children) //
+        child._describe(),
+    ];
+
+    if (running.isEmpty) return '$current';
+    return '$current [${running.join(', ')}]';
   }
 }
 
