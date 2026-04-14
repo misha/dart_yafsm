@@ -1,3 +1,7 @@
+## 2.0.1
+
+- States may now be safely called before a machine is turned on, returning `false`.
+
 ## 2.0.0
 
 - Machine, state, and transition labels are now optional, final parameters.
