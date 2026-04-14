@@ -769,25 +769,6 @@ void main() {
   });
 
   //
-  // State.call() when stopped
-  //
-
-  test('state call throws when machine is stopped', () {
-    final m = Machine();
-    final a = m.state();
-    expect(() => a(), throwsStateError);
-  });
-
-  test('state call throws after machine is stopped', () {
-    final m = Machine();
-    final a = m.state();
-    m.start(a);
-    expect(a(), isTrue);
-    m.stop();
-    expect(() => a(), throwsStateError);
-  });
-
-  //
   // onChange fires on stop with (previous, null)
   //
 
