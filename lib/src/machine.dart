@@ -25,18 +25,12 @@ class Machine {
   bool get isStopped => _current == null;
 
   State get current {
-    if (isStopped) {
-      throw StateError('The machine is not running yet.');
-    }
-
+    if (isStopped) throw StateError('The machine is not running yet.');
     return _current!.$1;
   }
 
   void start(SimpleState state) {
-    if (isRunning) {
-      throw StateError('The machine is already running.');
-    }
-
+    if (isRunning) throw StateError('The machine is already running.');
     _enter(null, state, null);
 
     for (final fn in _onChange) {
@@ -45,10 +39,7 @@ class Machine {
   }
 
   void pstart<T, S extends ParameterizedState<T>>(S state, T data) {
-    if (isRunning) {
-      throw StateError('The machine is already running.');
-    }
-
+    if (isRunning) throw StateError('The machine is already running.');
     _enter(null, state, data);
 
     for (final fn in _onChange) {
@@ -169,7 +160,10 @@ sealed class State {
   final int id;
   final String? label;
 
-  bool call() => identical(this, _parent.current);
+  bool call() {
+    if (_parent.isStopped) return false;
+    return identical(this, _parent.current);
+  }
 
   @override
   String toString() => label ?? 'state#$id';
@@ -183,10 +177,7 @@ class ParameterizedState<T> extends State {
   const ParameterizedState._(super.parent, super.id, {super.label});
 
   T get data {
-    if (!call()) {
-      throw StateError('This state is not active.');
-    }
-
+    if (!call()) throw StateError('This state is not active.');
     return _parent._current!.$2 as T;
   }
 }

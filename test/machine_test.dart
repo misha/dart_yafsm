@@ -267,4 +267,10 @@ void main() {
     goHome();
     expect(inKitchen(), isTrue);
   });
+
+  test('check state when machine is off', () {
+    final m = Machine();
+    final isOn = m.pstate<({String reason})>('on');
+    expect(isOn(), isFalse);
+  });
 }
