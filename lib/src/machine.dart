@@ -216,7 +216,7 @@ class ParameterizedTransition<T> extends Transition<ParameterizedState<T>> {
     super._parent, {
     required super.from,
     required super.to,
-    String? label,
+    super.label,
   });
 
   bool call(T data) => _parent._attempt(this, data);
